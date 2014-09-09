@@ -2,6 +2,7 @@ package com.eyalzo.common.net;
 
 import java.util.LinkedList;
 
+import com.eyalzo.common.misc.DateUtils;
 import com.eyalzo.common.misc.MapCounter;
 import com.eyalzo.common.misc.StringUtils;
 import com.eyalzo.common.webgui.DisplayTable;
@@ -64,13 +65,19 @@ public class ParsedHtml
 				type = HtmlPartType.TEXT_REAL;
 		}
 
+		public HtmlPart(HtmlPart o)
+		{
+			this.text = new String(o.text);
+			this.type = o.type;
+		}
+
 		/**
 		 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to
 		 * their safe form (as &amp;lt;). Also converts the newlines to visiable two characters "\n".
 		 * 
 		 * @return Display safe HTML representation of the text.
 		 */
-		String getTextAsHtmlDisplayable()
+		public String getTextAsHtmlDisplayable()
 		{
 			return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
 					.replace("\n", "\\n");
@@ -87,7 +94,44 @@ public class ParsedHtml
 			return text.substring(beginIndex, endIndex).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 					.replace(" ", "&nbsp;").replace("\n", "\\n");
 		}
+
+		@Override
+		public boolean equals(Object o)
+		{
+			if (o == null || !(o instanceof HtmlPart))
+				return false;
+
+			HtmlPart oHtmlPart = (HtmlPart) o;
+
+			return this.type == oHtmlPart.type
+					&& (this.text == null && oHtmlPart.text == null || this.text != null
+							&& this.text.equals(oHtmlPart.text));
+		}
 	}
+
+	public class HtmlText
+	{
+		public String		text;
+		public HtmlTextType	type;
+		/**
+		 * 1-based index of the first real text.
+		 */
+		public int			firstPartIndex;
+		/**
+		 * 1-based index of the last real text.
+		 */
+		public int			lastPartIndex;
+
+		public HtmlText(String text)
+		{
+			this.text = text;
+		}
+	}
+
+	/**
+	 * Total length in bytes of the original byte stream.
+	 */
+	public final int					length;
 
 	//
 	// HTML parts
@@ -100,6 +144,22 @@ public class ParsedHtml
 	 * Counter per type of HTML part.
 	 */
 	private MapCounter<HtmlPartType>	statPartsCount	= new MapCounter<ParsedHtml.HtmlPartType>();
+	public long							statHtmlParsingNano;
+
+	/**
+	 * Duplication of the HTML parts, for processing and output.
+	 */
+	private LinkedList<HtmlPart>		dupParts;
+	/**
+	 * True when the dup exists and it was processed to remove images so the style should be modified when
+	 * {@link #getBody()} is called.
+	 */
+	private boolean						dupRemovedImagesSource;
+	/**
+	 * True when the dup exists and it was processed to remove images so the style should be modified when
+	 * {@link #getBody()} is called.
+	 */
+	private boolean						dupRemovedImagesAltText;
 
 	//
 	// Text parts
@@ -108,16 +168,20 @@ public class ParsedHtml
 	 * Significant text parts, all started as {@link HtmlPartType#TEXT_REAL} and were aggregated if possible, and then
 	 * filtered if they ended up being too short or having only symbols.
 	 */
-	private LinkedList<String>			textProcessedParts;
+	private LinkedList<HtmlText>		textProcessedParts;
+	public long							statTextCombiningNano;
 
 	public ParsedHtml(byte[] bodyBytes)
 	{
+		long before = System.nanoTime();
+
+		length = bodyBytes.length;
 		parts = new LinkedList<ParsedHtml.HtmlPart>();
 
 		// Offset and state
 		boolean stateHtml = false;
 		int startOffset = 0;
-		for (int offset = 0; offset < bodyBytes.length; offset++)
+		for (int offset = 0; offset < length; offset++)
 		{
 			byte curChar = bodyBytes[offset];
 			if (stateHtml)
@@ -153,8 +217,27 @@ public class ParsedHtml
 		// Go over the parts and mark the styles and scripts
 		handleStylesAndScripts();
 
+		statHtmlParsingNano = System.nanoTime() - before;
+
 		// Update stats
 		updateStats();
+	}
+
+	private void verifyPartsDup()
+	{
+		if (dupParts != null)
+			return;
+
+		dupParts = new LinkedList<ParsedHtml.HtmlPart>();
+		for (HtmlPart curPart : parts)
+			dupParts.add(new HtmlPart(curPart));
+	}
+
+	public void clearPartsDup()
+	{
+		dupParts = null;
+		dupRemovedImagesSource = false;
+		dupRemovedImagesAltText = false;
 	}
 
 	private void updateStats()
@@ -300,21 +383,31 @@ public class ParsedHtml
 		if (textProcessedParts != null)
 			return;
 
-		textProcessedParts = new LinkedList<String>();
+		long before = System.nanoTime();
+
+		textProcessedParts = new LinkedList<ParsedHtml.HtmlText>();
 
 		// Try to merge
-		String curText = null;
+		HtmlText curText = null;
+		int curPartIndex = 0;
 		for (HtmlPart curPart : parts)
 		{
+			curPartIndex++;
+			// Text - collect the text and HTML elements between
 			if (curPart.type == HtmlPartType.TEXT_REAL)
 			{
 				if (curText == null)
-					curText = curPart.text.replace("&nbsp;", " ").trim();
-				else
 				{
+					String temp = curPart.text.replace("&nbsp;", " ").trim();
+					curText = new HtmlText(temp);
+					curText.firstPartIndex = curPartIndex;
+					curText.lastPartIndex = curPartIndex;
+				} else
+				{
+					curText.lastPartIndex = curPartIndex;
 					// Add a delimiter, that is needed because of the trims
-					curText += " ";
-					curText += curPart.text.replace("&nbsp;", " ").trim();
+					curText.text += " ";
+					curText.text += curPart.text.replace("&nbsp;", " ").trim();
 				}
 				continue;
 			}
@@ -325,8 +418,10 @@ public class ParsedHtml
 				if (tagName != null && curText != null)
 				{
 					// System.out.println(tagName);
+					// Regarding the (rare) "address" tag: Most browsers will add a line break before and after the
+					// address element.
 					if (tagName.equals("br") || tagName.equals("table") || tagName.equals("tr") || tagName.equals("td")
-							|| tagName.equals("p"))
+							|| tagName.equals("p") || tagName.equals("address"))
 					{
 						textProcessedParts.add(curText);
 						curText = null;
@@ -338,16 +433,33 @@ public class ParsedHtml
 		// Last one?
 		if (curText != null)
 			textProcessedParts.add(curText);
+
+		statTextCombiningNano = System.nanoTime() - before;
 	}
 
 	/**
 	 * @return Significant text parts, all started as {@link HtmlPartType#TEXT_REAL} and were aggregated if possible,
 	 *         and then filtered if they ended up being too short or having only symbols.
 	 */
-	public LinkedList<String> getTextProcessedParts()
+	public LinkedList<HtmlText> getTextProcessedParts()
 	{
 		generateTextProcessedParts();
 		return textProcessedParts;
+	}
+
+	/**
+	 * @return True if the given text was found in the combined {@link HtmlPartType#TEXT_REAL} parts that were processed
+	 *         and merged to sentences.
+	 */
+	public boolean containsTextProcessed(String text)
+	{
+		generateTextProcessedParts();
+
+		for (HtmlText curText : textProcessedParts)
+			if (curText.text.equals(text))
+				return true;
+
+		return false;
 	}
 
 	/**
@@ -360,6 +472,16 @@ public class ParsedHtml
 	}
 
 	/**
+	 * @return Number of real text (non-empty) parts, which is basically the number of times the parser found a
+	 *         non-empty text between HTML elements.
+	 * @see #getStats()
+	 */
+	public long getStatTextRealCount()
+	{
+		return statPartsCount.get(HtmlPartType.TEXT_REAL);
+	}
+
+	/**
 	 * @return The complete stats of parts found when parsed the HTML, after some initial processing of style and
 	 *         script.
 	 * @see #getStatHtmlElementCount()
@@ -369,7 +491,7 @@ public class ParsedHtml
 		return statPartsCount;
 	}
 
-	public DisplayTable webGuiTextProcessed()
+	public DisplayTable webGuiTextProcessed(String link)
 	{
 		generateTextProcessedParts();
 
@@ -377,18 +499,339 @@ public class ParsedHtml
 
 		table.addCol("#", "Sequence of merged text part", true);
 		table.addCol("Currency?", "Mark '+' if looks like curreny (USD)", false);
+		table.addCol("Date?", "Mark '+' if looks like a date, even if illegal", false);
+		table.addCol("Country?", "Mark '+' if looks like a full country name", false);
+		table.addCol("From", "Start 1-based index in the full list of HTML parts");
+		table.addCol("To", "End 1-based index in the full list of HTML parts");
 		table.addCol("Text", "The text itself");
 
 		int i = 0;
-		for (String curText : textProcessedParts)
+		for (HtmlText curText : textProcessedParts)
 		{
 			table.addRow(null);
 			i++;
-			table.addCell(i);
-			table.addCell(StringUtils.isTextCurrency(curText) ? "+" : null);
-			table.addCell(curText, null, false, true);
+			table.addCell(i, link + i);
+			table.addCell(StringUtils.isTextCurrency(curText.text) ? "+" : null);
+			table.addCell(DateUtils.isDate(curText.text) ? "+" : null);
+			table.addCell(StringUtils.isTextCountry(curText.text) ? "+" : null);
+			table.addCell(curText.firstPartIndex);
+			table.addCell(curText.lastPartIndex);
+			table.addCell("<div style=\"word-break:break-all;\">" + curText.text + "</div>", null);
 		}
 
 		return table;
+	}
+
+	public DisplayTable webGuiParts(int fromIndex, int toIndex, String link)
+	{
+		if (toIndex <= 0)
+			toIndex = parts.size();
+
+		DisplayTable table = new DisplayTable();
+
+		table.addCol("#", "Sequence of part", true);
+		table.addCol("Type", "Type of part");
+		table.addCol("Text", "The text as found in the HTML");
+
+		int i = 0;
+		for (HtmlPart curPart : parts)
+		{
+			// Index
+			i++;
+			if (i < fromIndex)
+				continue;
+			if (i > toIndex)
+				break;
+
+			table.addRow(null);
+			table.addCell(i, link + i);
+			table.addCell(curPart.type);
+			table.addCell("<div style=\"word-break:break-all;\">"
+					+ (curPart.type == HtmlPartType.HTML_ELEMENT ? curPart.getTextAsHtmlDisplayable() : curPart.text)
+					+ "</div>", null);
+		}
+
+		return table;
+	}
+
+	/**
+	 * 
+	 * @param index
+	 *            1-based index of the part to start scanning before it.
+	 * @param type
+	 *            The type of the searched part.
+	 * @return Zero if not found, or the 1-based index if found.
+	 */
+	public int getPartIndexBefore(int index, HtmlPartType type)
+	{
+		for (int i = index - 2; i >= 0; i--)
+		{
+			HtmlPart curPart = parts.get(i);
+			if (curPart.type == type)
+				return i + 1;
+		}
+		return 0;
+	}
+
+	/**
+	 * 
+	 * @param index
+	 *            1-based index of the part to start scanning after it.
+	 * @param type
+	 *            The type of the searched part.
+	 * @return Zero if not found, or the 1-based index if found.
+	 */
+	public int getPartIndexAfter(int index, HtmlPartType type)
+	{
+		for (int i = index; i < parts.size(); i++)
+		{
+			HtmlPart curPart = parts.get(i);
+			if (curPart.type == type)
+				return i + 1;
+		}
+		return 0;
+	}
+
+	/**
+	 * @param oParsedHtml
+	 *            The other parsed HTML to try to match to this.
+	 * @param minAnchorTextLen
+	 *            The minimal length of a text or HTML tag to be considered as an anchor.
+	 * @param maxOffset
+	 *            The maximal forward offset in number of parts that we will consider for anchor.
+	 * @return List of offsets to anchors in the other list of parts, containing number of parts for strong anchors and
+	 *         nulls for empty, short text/HTML or text that do not fully match. Number of elements in the returned list
+	 *         would always be exactly the number of parts in this parsed HTML.
+	 */
+	public LinkedList<Integer> compareGetPartsOffsets(ParsedHtml oParsedHtml, int minAnchorTextLen, int maxOffset)
+	{
+		LinkedList<Integer> result = new LinkedList<Integer>();
+
+		// Index of the other, taking offset into account already
+		int oIndex = 0;
+		boolean isStrongSync = false;
+		// Parts of the other, for code readability
+		LinkedList<HtmlPart> oParts = oParsedHtml.parts;
+
+		for (int index = 0; index < parts.size(); index++)
+		{
+			// If the other is shorter or exhausted, then there is nothing to say about the match
+			if (oIndex >= oParts.size())
+			{
+				result.add(null);
+				continue;
+			}
+
+			HtmlPart curPart = parts.get(index);
+
+			// Do not use empty text or short text/HTML as an anchor
+			if (curPart.type == HtmlPartType.TEXT_EMPTY || curPart.text.length() < minAnchorTextLen)
+			{
+				// If still in sync because of former strong anchor, then try to continue
+				if (isStrongSync)
+				{
+					HtmlPart oCurPart = oParts.get(oIndex);
+					if (curPart.equals(oCurPart))
+					{
+						result.add(oIndex - index);
+						oIndex++;
+						continue;
+					}
+				}
+
+				isStrongSync = false;
+				result.add(null);
+				continue;
+			}
+
+			// We now have a part with significant text or HTML tag that we want to match
+
+			// Get the other part
+			int oMaxIndex = Math.min(oIndex + maxOffset, oParts.size() - 1);
+			boolean match = false;
+			for (int i = oIndex; i <= oMaxIndex; i++)
+			{
+				HtmlPart oCurPart = oParts.get(i);
+				// On exact match
+				if (curPart.equals(oCurPart))
+				{
+					result.add(i - index);
+					isStrongSync = true;
+					oIndex = i + 1;
+					match = true;
+					break;
+				}
+			}
+
+			// If nothing match then do not move the other index
+			if (!match)
+			{
+				result.add(null);
+				isStrongSync = false;
+			}
+		}
+
+		return result;
+	}
+
+	public int getHtmlTagCount(String tagName)
+	{
+		int result = 0;
+
+		for (HtmlPart curPart : parts)
+		{
+			if (curPart.type != HtmlPartType.HTML_ELEMENT)
+				continue;
+
+			String curTagName = HtmlUtils.getHtmlTagName(curPart.text);
+			if (curTagName == null)
+				continue;
+
+			if (curTagName.equals(tagName))
+				result++;
+		}
+
+		return result;
+	}
+
+	/**
+	 * Get the HTML body, original or processed, according to state of the internal replication that exists only if
+	 * processing methods were called.
+	 * 
+	 * @return HTML body, original or processed, according to state of the internal replication.
+	 * @see ParsedHtml#dupAnonymizeCharacters(boolean)
+	 */
+	public String getBody()
+	{
+		// Initialize the buffer with approximate size of result, so save time
+		StringBuffer result = new StringBuffer(length);
+
+		if (dupRemovedImagesAltText || dupRemovedImagesSource)
+		{
+			result.append("<style type=\"text/css\">\n");
+			result.append("img{ " + (dupRemovedImagesAltText ? "color: red; " : "")
+					+ (dupRemovedImagesSource ? "border:1px dotted red; " : "") + "}");
+			result.append("</style>\n");
+		}
+
+		// Use the right part list - original or processed
+		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
+		{
+			if (curPart.text.isEmpty())
+				continue;
+			result.append(curPart.text);
+		}
+
+		return result.toString();
+	}
+
+	@Deprecated
+	public String getBody(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle,
+			boolean anonymizeLetters, boolean anonymizeDigits)
+	{
+		// Initialize the buffer with approximate size of result, so save time
+		StringBuffer result = new StringBuffer(length);
+
+		boolean processImages = removeImagesAltText || removeImagesSource || removeImagesTitle;
+		boolean processText = anonymizeDigits || anonymizeLetters;
+
+		//
+		// Style for removed parts
+		//
+		if (removeImagesAltText || removeImagesSource)
+		{
+			result.append("<style type=\"text/css\">\n");
+			result.append("img{ " + (removeImagesAltText ? "color: red; " : "")
+					+ (removeImagesSource ? "border:1px dotted red; " : "") + "}");
+			result.append("</style>\n");
+		}
+
+		//
+		// Build the HTML while procesing
+		//
+		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
+		{
+			if (curPart.text.isEmpty())
+				continue;
+
+			// Process image HTML elements
+			if (processImages && curPart.type == HtmlPartType.HTML_ELEMENT)
+			{
+				String tagName = HtmlUtils.getHtmlTagName(curPart.text);
+				if (tagName != null && tagName.equals("img"))
+				{
+					String processedText = curPart.text;
+					if (removeImagesSource)
+						processedText = processedText.replaceFirst("[ \\n]src[ \\n]*=[ \\n]*\"[^\"]+\"", " ");
+					if (removeImagesAltText)
+						processedText = processedText.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"",
+								" alt=\"(alt)\"");
+					if (removeImagesAltText)
+						processedText = processedText.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"",
+								" title=\"(title)\"");
+					result.append(processedText);
+					continue;
+				}
+			} else if (processText && curPart.type == HtmlPartType.TEXT_REAL)
+			{
+				result.append(anonymizeCharacters(curPart.text, true));
+				continue;
+			}
+
+			result.append(curPart.text);
+		}
+
+		return result.toString();
+	}
+
+	public void dupAnonymizeCharacters(boolean anonymizeDigits)
+	{
+		// Must call it before accessing the dup
+		verifyPartsDup();
+
+		for (HtmlPart curPart : dupParts)
+		{
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			curPart.text = anonymizeCharacters(curPart.text, anonymizeDigits);
+		}
+	}
+
+	public void dupAnonymizeImages(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle)
+	{
+		if (!removeImagesAltText && !removeImagesSource && !removeImagesTitle)
+			return;
+
+		dupRemovedImagesAltText = dupRemovedImagesAltText || removeImagesAltText;
+		dupRemovedImagesSource = dupRemovedImagesSource || removeImagesSource;
+
+		// Must call it before accessing the dup
+		verifyPartsDup();
+
+		for (HtmlPart curPart : dupParts)
+		{
+			if (curPart.type != HtmlPartType.HTML_ELEMENT)
+				continue;
+
+			String tagName = HtmlUtils.getHtmlTagName(curPart.text);
+			if (tagName == null || !tagName.equals("img"))
+				continue;
+
+			if (removeImagesSource)
+				curPart.text = curPart.text.replaceFirst("[ \\n]src[ \\n]*=[ \\n]*\"[^\"]+\"", " ");
+			if (removeImagesAltText)
+				curPart.text = curPart.text.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"", " alt=\"(alt)\"");
+			if (removeImagesAltText)
+				curPart.text = curPart.text.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"", " title=\"(title)\"");
+		}
+	}
+
+	private static String anonymizeCharacters(String text, boolean anonymizeDigits)
+	{
+		// TODO handle all the special symbols like "&lt;" etc.
+		String result = text.replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("[A-Z]", "N")
+				.replaceAll("[a-z]", "a");
+		return anonymizeDigits ? result.replaceAll("[0-9]", "1") : result;
 	}
 }

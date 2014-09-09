@@ -36,6 +36,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -52,6 +53,11 @@ public class StringUtils
 	private static final HashSet<String>	stopWords			= new HashSet<String>(Arrays.asList(stopWordsArray));
 	private static final Pattern			patternCurrency		= Pattern
 																		.compile("\\$( )?[0-9]+(\\,[0-9]{3})*(\\.[0-9]([0-9])?)?");
+	/**
+	 * Country names, where the full names are converted to lowercase ("israel") and the 2-char ISO names are kept in
+	 * uppercase ("IL").
+	 */
+	private static HashSet<String>			countryNames;
 
 	/**
 	 * Check if text looks like a payment in USD in the format like "$15.01", "$15.1", "$1,024", etc.
@@ -66,6 +72,43 @@ public class StringUtils
 			return false;
 
 		return patternCurrency.matcher(text).matches();
+	}
+
+	/**
+	 * Check if text looks like a full country name according to the ISO 3166.
+	 * 
+	 * @param text
+	 *            The given text, after trim. May be null.
+	 * @return True if the given text looks like a payment in USD.
+	 */
+	public static boolean isTextCountry(String text)
+	{
+		if (text == null)
+			return false;
+
+		// Initialize the list
+		if (countryNames == null)
+		{
+			countryNames = new HashSet<String>();
+			String[] locales = Locale.getISOCountries();
+			for (String countryCode : locales)
+			{
+				Locale obj = new Locale("", countryCode);
+				String curCountry = obj.getDisplayCountry();
+				countryNames.add(curCountry.toLowerCase());
+				curCountry = obj.getCountry();
+				countryNames.add(curCountry);
+			}
+			// Specific common cases
+			countryNames.add("USA");
+		}
+
+		// Check if the lower-case trimmed version is found in the list
+		String trim = text.trim();
+		if (countryNames.contains(trim.toLowerCase()))
+			return true;
+		// Now try the 2-char uppercase
+		return countryNames.contains(trim);
 	}
 
 	/**

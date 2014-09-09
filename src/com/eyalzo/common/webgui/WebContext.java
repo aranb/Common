@@ -458,6 +458,17 @@ public class WebContext
 	}
 
 	/**
+	 * Append a number-string to the output.
+	 * 
+	 * @param htmlText
+	 *            Number to append.
+	 */
+	public void appendString(Number htmlText)
+	{
+		outputBuffer.append(htmlText);
+	}
+
+	/**
 	 * Append a paragraph to the output.
 	 * <p>
 	 * It only adds the &lt;p&gt; element to the text.

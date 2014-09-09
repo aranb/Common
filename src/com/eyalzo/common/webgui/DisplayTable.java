@@ -2098,27 +2098,22 @@ public class DisplayTable
 		if (curRow == null)
 			return false;
 
+		// If cells are missing in this row, try to add (may cause an exception, if there is no such column in table)
+		while (colIndex >= curRow.cells.size())
+			curRow.addCell(null);
+
 		Cell keyCell = curRow.cells.get(colIndex);
 		if (keyCell == null)
-			return false;
-
-		// If this is a new cell
-		if (colIndex == curRow.cells.size())
 		{
-			curRow.addCell(new Cell(data, link, null, false, false, null, false, columns.get(currCol).commaSeparator));
-			return true;
+			keyCell = new Cell(data, link, null, false, false, null, false, columns.get(currCol).commaSeparator);
+			curRow.cells.set(colIndex, keyCell);
+		} else
+		{
+			keyCell.data = data;
+			keyCell.link = link;
 		}
 
-		// If this cell already exists
-		if (colIndex < curRow.cells.size())
-		{
-			Cell cell = curRow.cells.get(colIndex);
-			cell.data = data;
-			cell.link = link;
-			return true;
-		}
-
-		return false;
+		return true;
 	}
 
 	/**
