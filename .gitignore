@@ -1,0 +1,7 @@
+*.DS_Store
+/.svn/
+/bin/
+*.class
+*.jar
+/c:\temp\1.html
+*/META-INF
