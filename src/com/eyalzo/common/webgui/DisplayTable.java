@@ -1301,10 +1301,17 @@ public class DisplayTable
 				// Build sort links
 				//
 				String linkSort = webGui.getUrl();
-				linkSort += linkSort.contains("?") ? "&" : "?";
+				// Clean the sorting parameters
+				linkSort = linkSort.replaceAll("sortcol=[0-9]*", "");
+				linkSort = linkSort.replaceAll("sortasc=(0|1)", "");
+				linkSort = linkSort.replaceAll("&&", "&");
+				linkSort = linkSort.replaceAll("\\?&", "?");
+				// Add query sign if needed
+				if (!linkSort.endsWith("?") && !linkSort.endsWith("&"))
+					linkSort += linkSort.contains("?") ? "&" : "?";
 				linkSort += "sortcol=" + i;
 				linkSort += "&sortasc="
-						+ ((i == sortColumn) ? Boolean.toString(!sortAscending) : Boolean.toString(col.initialSortAsc));
+						+ ((i == sortColumn) ? (sortAscending ? "0" : "1") : (col.initialSortAsc ? "1" : "0"));
 
 				buffer.setLength(0);
 				buffer.append("<a href='");
