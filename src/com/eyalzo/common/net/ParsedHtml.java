@@ -1,5 +1,8 @@
 package com.eyalzo.common.net;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 
 import com.eyalzo.common.misc.DateUtils;
@@ -8,6 +11,9 @@ import com.eyalzo.common.misc.StringUtils;
 import com.eyalzo.common.webgui.DisplayTable;
 
 /**
+ * Parse HTML code and keep its parts in a list. Can also hold a duplicate of the part list, in order to process it
+ * without changing the original.
+ * 
  * @author Eyal Zohar
  */
 public class ParsedHtml
@@ -73,7 +79,7 @@ public class ParsedHtml
 
 		/**
 		 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to
-		 * their safe form (as &amp;lt;). Also converts the newlines to visiable two characters "\n".
+		 * their safe form (as &amp;lt;). Also converts the newlines to visible two characters "\n".
 		 * 
 		 * @return Display safe HTML representation of the text.
 		 */
@@ -85,7 +91,7 @@ public class ParsedHtml
 
 		/**
 		 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to
-		 * their safe form (as &amp;lt;). Also converts the newlines to visiable two characters "\n".
+		 * their safe form (as &amp;lt;). Also converts the newlines to visible two characters "\n".
 		 * 
 		 * @return Display safe HTML representation of the text.
 		 */
@@ -146,6 +152,9 @@ public class ParsedHtml
 	private MapCounter<HtmlPartType>	statPartsCount	= new MapCounter<ParsedHtml.HtmlPartType>();
 	public long							statHtmlParsingNano;
 
+	//
+	// Duplicate for processing without changing the original
+	//
 	/**
 	 * Duplication of the HTML parts, for processing and output.
 	 */
@@ -833,5 +842,66 @@ public class ParsedHtml
 		String result = text.replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("[A-Z]", "N")
 				.replaceAll("[a-z]", "a");
 		return anonymizeDigits ? result.replaceAll("[0-9]", "1") : result;
+	}
+
+	/**
+	 * @param oParsedHtml
+	 *            The other parsed HTML to try to match to this.
+	 * @param minAnchorTextLen
+	 *            The minimal length of a text or HTML tag to be considered as an anchor.
+	 * @param maxOffset
+	 *            The maximal forward offset in number of parts that we will consider for anchor.
+	 * @return List of parts matching each of this HTML's text parts (non empty text). The result is sorted first by the
+	 *         key which is the order of text parts in the current HTML. Each part list is ordered by the original given
+	 *         order of other HTMLs.
+	 */
+	public LinkedHashMap<HtmlPart, LinkedList<HtmlPart>> compareGetTexts(Collection<ParsedHtml> oParsedHtml,
+			int minAnchorTextLen, int maxOffset)
+	{
+		// Prepare the result
+		LinkedHashMap<HtmlPart, LinkedList<HtmlPart>> result = new LinkedHashMap<ParsedHtml.HtmlPart, LinkedList<HtmlPart>>();
+
+		// Parts offsets from this HTML to the others
+		HashMap<ParsedHtml, LinkedList<Integer>> othersPartsOffsets = new HashMap<ParsedHtml, LinkedList<Integer>>();
+		// Compare with each of the other HTMLs
+		for (ParsedHtml curParsedHtml : oParsedHtml)
+		{
+			// Get current offsets
+			LinkedList<Integer> curPartsOffsets = this.compareGetPartsOffsets(curParsedHtml, minAnchorTextLen,
+					maxOffset);
+			othersPartsOffsets.put(curParsedHtml, curPartsOffsets);
+		}
+
+		//
+		// Look for others' matches per text
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			// The others
+			LinkedList<HtmlPart> othersParts = new LinkedList<ParsedHtml.HtmlPart>();
+			// Handle each of the others' current part, if there is a match
+			for (ParsedHtml curParsedHtml : oParsedHtml)
+			{
+				// All offsets between this and the current other
+				LinkedList<Integer> curPartsOffsets = othersPartsOffsets.get(curParsedHtml);
+				// See if there is a clear offset between this text and the current-other's text
+				Integer curOffset = curPartsOffsets.get(partIndex);
+				HtmlPart curOtherPart = curOffset == null ? null : curParsedHtml.parts.get(partIndex + curOffset);
+				// Add to the list of matching (if) parts per this current part
+				othersParts.add(curOtherPart);
+			}
+
+			// Add the list of all matching per this current text
+			result.put(curPart, othersParts);
+		}
+
+		return result;
 	}
 }
