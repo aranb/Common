@@ -11,10 +11,18 @@ public class ByteArrayUtilsTest {
 	
 	final byte[] DELIMITER1 = {12, 34};
 	final byte[] DELIMITER2 = {12, 7};
+	
 	final byte[] INPUT1 = {1, 2, 3, 12, 1, 2, 3, 34, 12, 34, 5, 6, 7};
+	//                                           ======
+	
 	final byte[] INPUT2 = {1, 2, 3, 12, 34, 1, 2, 3, 34, 12, 34, 5, 6, 7, 12, 34};
+	//                              ======               ======           ======
+	
 	final byte[] INPUT3 = {12, 34, 1, 2, 3, 12, 34, 1, 2, 3, 34, 12, 34, 5, 6, 7, 12, 34};
+	//                     ======           ======               ======           ======
+	
 	final byte[] INPUT4 = {1, 2, 3, 12, 1, 2, 3, 34, 12, 34, 12, 34, 5, 6, 7};
+	//                                               ======  ======
 
 	@Test
 	public void testIndex1() {
