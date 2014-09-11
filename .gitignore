@@ -13,3 +13,7 @@ hs_err_pid*
 /bin/
 
 *.DS_Store
+/.svn/
+*.class
+/c:\temp\1.html
+*/META-INF

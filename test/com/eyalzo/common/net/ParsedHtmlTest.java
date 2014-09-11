@@ -3,10 +3,11 @@ package com.eyalzo.common.net;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-import java.util.LinkedList;
-
 import org.junit.Before;
 import org.junit.Test;
+
+import com.eyalzo.common.html.HtmlDiff;
+import com.eyalzo.common.html.ParsedHtml;
 
 public class ParsedHtmlTest
 {
@@ -30,59 +31,62 @@ public class ParsedHtmlTest
 	@Test
 	public void testCompareGetPartsOffsets()
 	{
-		LinkedList<Integer> result;
+		HtmlDiff result;
 
 		// No tolerance for resync
-		result = parsedHtml1.compareGetPartsOffsets(parsedHtml2, 0, 0);
-		assertEquals(parsedHtml1.parts.size(), result.size());
-		assertEquals(0, (int) result.get(0));
-		assertNull(result.get(1));
-		assertNull(result.get(2));
-		assertNull(result.get(3));
-		assertNull(result.get(4));
-		assertNull(result.get(5));
+		result = new HtmlDiff(parsedHtml1, parsedHtml2, 0, 0);
+		assertEquals(parsedHtml1.parts.size(), result.syncOffsets.size());
+		assertEquals(0, (int) result.syncOffsets.get(0));
+		assertNull(result.syncOffsets.get(1));
+		assertNull(result.syncOffsets.get(2));
+		assertNull(result.syncOffsets.get(3));
+		assertNull(result.syncOffsets.get(4));
+		assertNull(result.syncOffsets.get(5));
+
+		assertEquals(1, result.textOffsets.size());
+		assertEquals(0, (int) result.textOffsets.get(1));
 
 		// With tolerance for resync
-		result = parsedHtml1.compareGetPartsOffsets(parsedHtml2, 0, 1);
-		assertEquals(parsedHtml1.parts.size(), result.size());
-		assertEquals(0, (int) result.get(0));
-		assertNull(result.get(1));
+		result = new HtmlDiff(parsedHtml1, parsedHtml2, 0, 1);
+		assertEquals(parsedHtml1.parts.size(), result.syncOffsets.size());
+		assertEquals(0, (int) result.syncOffsets.get(0));
+		assertNull(result.syncOffsets.get(1));
 		// Now it managed to resync with the "<b>" element
-		assertEquals(0, (int) result.get(2));
-		assertEquals(0, (int) result.get(3));
-		assertEquals(0, (int) result.get(4));
-		assertEquals(0, (int) result.get(5));
+		assertEquals(0, (int) result.syncOffsets.get(2));
+		assertEquals(0, (int) result.syncOffsets.get(3));
+		assertEquals(0, (int) result.syncOffsets.get(4));
+		assertEquals(0, (int) result.syncOffsets.get(5));
 
 		// With tolerance for resync, min text 3 so it catches the "<b>"
-		result = parsedHtml1.compareGetPartsOffsets(parsedHtml2, 3, 1);
-		assertEquals(parsedHtml1.parts.size(), result.size());
-		assertEquals(0, (int) result.get(0));
-		assertNull(result.get(1));
+		result = new HtmlDiff(parsedHtml1, parsedHtml2, 3, 1);
+		assertEquals(parsedHtml1.parts.size(), result.syncOffsets.size());
+		assertEquals(0, (int) result.syncOffsets.get(0));
+		assertNull(result.syncOffsets.get(1));
 		// Now it managed to resync with the "<b>" element
-		assertEquals(0, (int) result.get(2));
+		assertEquals(0, (int) result.syncOffsets.get(2));
 
 		// With tolerance for resync, min text 4 so it does not catch the "<b>"
-		result = parsedHtml1.compareGetPartsOffsets(parsedHtml2, 4, 1);
-		assertEquals(parsedHtml1.parts.size(), result.size());
-		assertEquals(0, (int) result.get(0));
-		assertNull(result.get(1));
+		result = new HtmlDiff(parsedHtml1, parsedHtml2, 4, 1);
+		assertEquals(parsedHtml1.parts.size(), result.syncOffsets.size());
+		assertEquals(0, (int) result.syncOffsets.get(0));
+		assertNull(result.syncOffsets.get(1));
 		// Now it does not catch the "<b>" element
-		assertNull(result.get(2));
+		assertNull(result.syncOffsets.get(2));
 		// And the allowed offset disables resync
-		assertNull(result.get(3));
-		assertNull(result.get(4));
-		assertNull(result.get(5));
+		assertNull(result.syncOffsets.get(3));
+		assertNull(result.syncOffsets.get(4));
+		assertNull(result.syncOffsets.get(5));
 
 		// With more tolerance for resync, min text 4 so it does not catch the "<b>"
-		result = parsedHtml1.compareGetPartsOffsets(parsedHtml2, 4, 2);
-		assertEquals(parsedHtml1.parts.size(), result.size());
-		assertEquals(0, (int) result.get(0));
-		assertNull(result.get(1));
+		result = new HtmlDiff(parsedHtml1, parsedHtml2, 4, 2);
+		assertEquals(parsedHtml1.parts.size(), result.syncOffsets.size());
+		assertEquals(0, (int) result.syncOffsets.get(0));
+		assertNull(result.syncOffsets.get(1));
 		// Now it does not catch the "<b>" element
-		assertNull(result.get(2));
+		assertNull(result.syncOffsets.get(2));
 		// And the allowed offset now enables resync using the "Bold" and other 4 characters elements
-		assertEquals(0, (int) result.get(3));
-		assertEquals(0, (int) result.get(4));
-		assertEquals(0, (int) result.get(5));
+		assertEquals(0, (int) result.syncOffsets.get(3));
+		assertEquals(0, (int) result.syncOffsets.get(4));
+		assertEquals(0, (int) result.syncOffsets.get(5));
 	}
 }
