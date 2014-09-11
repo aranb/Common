@@ -25,6 +25,8 @@ public class HtmlDiff
 	 * accurate estimations, using the sync points.
 	 */
 	public HashMap<Integer, Integer>	textOffsets;
+	public int							statTextIdentical;
+	public int							statTextOther;
 
 	/**
 	 * @param html1
@@ -78,12 +80,17 @@ public class HtmlDiff
 						lastStrongOffset = oIndex - index;
 						syncOffsets.add(lastStrongOffset);
 						oIndex++;
+						if (curPart.type == HtmlPartType.TEXT_REAL)
+							statTextIdentical++;
 						continue;
 					}
 
 					// If this is a text on both sides, we can assume a weak sync
 					if (curPart.type == HtmlPartType.TEXT_REAL && oCurPart.type == HtmlPartType.TEXT_REAL)
+					{
 						textOffsets.put(index, oIndex - index);
+						statTextOther++;
+					}
 				}
 
 				// TODO consider setting the lastBreakIndex here, if short HTML mismatch
@@ -105,6 +112,8 @@ public class HtmlDiff
 				// On exact match
 				if (curPart.equals(oCurPart))
 				{
+					if (curPart.type == HtmlPartType.TEXT_REAL)
+						statTextIdentical++;
 					syncOffsets.add(i - index);
 					isStrongSync = true;
 					// Next time, will start search at the next part
@@ -118,7 +127,7 @@ public class HtmlDiff
 			{
 				// Try to fix backward some weak matching texts
 
-				System.out.println("resync " + (index + 1));
+				// System.out.println("resync " + (index + 1));
 				// Do this routine only if the new offset equals the last strong one
 				if (lastStrongOffset == syncOffsets.get(syncOffsets.size() - 1))
 				{
@@ -127,8 +136,9 @@ public class HtmlDiff
 						if (html1.parts.get(i).type == HtmlPartType.TEXT_REAL
 								&& html2.parts.get(i + lastStrongOffset).type == HtmlPartType.TEXT_REAL)
 						{
-							System.out.println("fix " + (i + 1));
+							// System.out.println("fix " + (i + 1));
 							textOffsets.put(i, lastStrongOffset);
+							statTextOther++;
 						}
 					}
 				} else
@@ -150,7 +160,8 @@ public class HtmlDiff
 				// If this is a text on both sides, we can assume a weak sync
 				if (oCurPart.type == HtmlPartType.TEXT_REAL)
 				{
-					System.out.println("weak " + (index + 1));
+					// System.out.println("weak " + (index + 1));
+					statTextOther++;
 					textOffsets.put(index, oIndex - index);
 				}
 			}
@@ -158,7 +169,7 @@ public class HtmlDiff
 			if (curPart.type == HtmlPartType.HTML_ELEMENT)
 			{
 				lastBreakIndex = index;
-				System.out.println("break " + (index + 1));
+				// System.out.println("break " + (index + 1));
 			}
 			// This point is not a strong sync anymore
 			syncOffsets.add(null);
@@ -175,30 +186,16 @@ public class HtmlDiff
 	 *            The Base HTML that is being compared with all the others.
 	 * @param otherHtmls
 	 *            The other parsed HTMLs to try to match to this.
-	 * @param minAnchorTextLen
-	 *            The minimal length of a text or HTML tag to be considered as an anchor.
-	 * @param maxOffset
-	 *            The maximal forward offset in number of parts that we will consider for anchor.
 	 * @return List of text indexes (0-based) in the given HTML. Each text part (index) has a secondary list of matching
 	 *         indexes in the other HTMLs. When text is completely identical, it returns {@link Integer#MAX_VALUE}
 	 *         instead of the index of the other, to save string compare time. The secondary list has exactly the same
 	 *         number of items as the number of other HTMLs, ordered by the same order as the given list.
 	 */
 	public static LinkedHashMap<Integer, LinkedList<Integer>> compareGetTextIndexes(ParsedHtml mainHtml,
-			Collection<ParsedHtml> otherHtmls, int minAnchorTextLen, int maxOffset)
+			Collection<HtmlDiff> otherHtmls)
 	{
 		// Prepare the result
 		LinkedHashMap<Integer, LinkedList<Integer>> result = new LinkedHashMap<Integer, LinkedList<Integer>>();
-
-		// Compare the main HTML to all others
-		HashMap<ParsedHtml, HtmlDiff> othersPartsOffsets = new HashMap<ParsedHtml, HtmlDiff>();
-		// Compare with each of the other HTMLs
-		for (ParsedHtml curParsedHtml : otherHtmls)
-		{
-			// Get current offsets
-			HtmlDiff curPartsOffsets = new HtmlDiff(mainHtml, curParsedHtml, minAnchorTextLen, maxOffset);
-			othersPartsOffsets.put(curParsedHtml, curPartsOffsets);
-		}
 
 		//
 		// Look for others' matches per text
@@ -215,10 +212,8 @@ public class HtmlDiff
 			// The others
 			LinkedList<Integer> othersParts = new LinkedList<Integer>();
 			// Handle each of the others' current part, if there is a match
-			for (ParsedHtml curOtherHtml : otherHtmls)
+			for (HtmlDiff curPartsOffsets : otherHtmls)
 			{
-				// All offsets between this and the current other
-				HtmlDiff curPartsOffsets = othersPartsOffsets.get(curOtherHtml);
 				// See if there is a clear offset between this text and the current-other's text
 				Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
 				if (strongOffset != null)
