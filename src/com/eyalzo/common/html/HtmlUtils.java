@@ -1,4 +1,4 @@
-package com.eyalzo.common.net;
+package com.eyalzo.common.html;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -1,4 +1,4 @@
-package com.eyalzo.common.net;
+package com.eyalzo.common.html;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -18,101 +18,9 @@ import com.eyalzo.common.webgui.DisplayTable;
  */
 public class ParsedHtml
 {
-	public enum HtmlPartType
-	{
-		/**
-		 * Everything that starts with < and ends with >.
-		 */
-		HTML_ELEMENT, /**
-		 * Not HTML, but has only white spaces, including "&nbsp;" parts (6 characters).
-		 */
-		TEXT_EMPTY, /**
-		 * Has something meaningful, possibly just a comma or dot, but still somthing that may be worth
-		 * treating later.
-		 */
-		TEXT_REAL, /**
-		 * Looks like text, but it is actually an inline style code after a "<style ...".
-		 */
-		STYLE, /**
-		 * Looks like text, but it is actually a script code after a "<script ...".
-		 */
-		SCRIPT
-	}
-
 	public enum HtmlTextType
 	{
 		GENERAL, DATE, CURRENCY, CITY, COUNTRY, ADDRESS, NAME, PRODUCT;
-	}
-
-	/**
-	 * The basic parts of an HTML, separated so that each text and tag are separated from each other.
-	 */
-	public class HtmlPart
-	{
-		public String		text;
-		public HtmlPartType	type;
-
-		/**
-		 * Constructor that determines the basic type (not script or style yet).
-		 * 
-		 * @param text
-		 *            The text to store, may be an HTML etc.
-		 */
-		public HtmlPart(String text)
-		{
-			this.text = text;
-			// Determine the basic type, not handling the style/script case for now
-			if (text.startsWith("<"))
-				type = HtmlPartType.HTML_ELEMENT;
-			// Check if it is only whitespaces or &nbsp;
-			else if (text.toLowerCase().replace("&nbsp;", " ").trim().isEmpty())
-				type = HtmlPartType.TEXT_EMPTY;
-			else
-				type = HtmlPartType.TEXT_REAL;
-		}
-
-		public HtmlPart(HtmlPart o)
-		{
-			this.text = new String(o.text);
-			this.type = o.type;
-		}
-
-		/**
-		 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to
-		 * their safe form (as &amp;lt;). Also converts the newlines to visible two characters "\n".
-		 * 
-		 * @return Display safe HTML representation of the text.
-		 */
-		public String getTextAsHtmlDisplayable()
-		{
-			return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
-					.replace("\n", "\\n");
-		}
-
-		/**
-		 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to
-		 * their safe form (as &amp;lt;). Also converts the newlines to visible two characters "\n".
-		 * 
-		 * @return Display safe HTML representation of the text.
-		 */
-		String getTextAsHtmlDisplayable(int beginIndex, int endIndex)
-		{
-			return text.substring(beginIndex, endIndex).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-					.replace(" ", "&nbsp;").replace("\n", "\\n");
-		}
-
-		@Override
-		public boolean equals(Object o)
-		{
-			if (o == null || !(o instanceof HtmlPart))
-				return false;
-
-			HtmlPart oHtmlPart = (HtmlPart) o;
-
-			return this.type == oHtmlPart.type
-					&& (this.text == null && oHtmlPart.text == null || this.text != null
-							&& this.text.equals(oHtmlPart.text));
-		}
 	}
 
 	public class HtmlText
@@ -149,7 +57,7 @@ public class ParsedHtml
 	/**
 	 * Counter per type of HTML part.
 	 */
-	private MapCounter<HtmlPartType>	statPartsCount	= new MapCounter<ParsedHtml.HtmlPartType>();
+	private MapCounter<HtmlPartType>	statPartsCount	= new MapCounter<HtmlPartType>();
 	public long							statHtmlParsingNano;
 
 	//
@@ -185,7 +93,7 @@ public class ParsedHtml
 		long before = System.nanoTime();
 
 		length = bodyBytes.length;
-		parts = new LinkedList<ParsedHtml.HtmlPart>();
+		parts = new LinkedList<HtmlPart>();
 
 		// Offset and state
 		boolean stateHtml = false;
@@ -237,7 +145,7 @@ public class ParsedHtml
 		if (dupParts != null)
 			return;
 
-		dupParts = new LinkedList<ParsedHtml.HtmlPart>();
+		dupParts = new LinkedList<HtmlPart>();
 		for (HtmlPart curPart : parts)
 			dupParts.add(new HtmlPart(curPart));
 	}
@@ -612,6 +520,7 @@ public class ParsedHtml
 	 *         nulls for empty, short text/HTML or text that do not fully match. Number of elements in the returned list
 	 *         would always be exactly the number of parts in this parsed HTML.
 	 */
+	@Deprecated
 	public LinkedList<Integer> compareGetPartsOffsets(ParsedHtml oParsedHtml, int minAnchorTextLen, int maxOffset)
 	{
 		LinkedList<Integer> result = new LinkedList<Integer>();
@@ -756,7 +665,7 @@ public class ParsedHtml
 		}
 
 		//
-		// Build the HTML while procesing
+		// Build the HTML while processing
 		//
 		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
 		{
@@ -859,7 +768,7 @@ public class ParsedHtml
 			int minAnchorTextLen, int maxOffset)
 	{
 		// Prepare the result
-		LinkedHashMap<HtmlPart, LinkedList<HtmlPart>> result = new LinkedHashMap<ParsedHtml.HtmlPart, LinkedList<HtmlPart>>();
+		LinkedHashMap<HtmlPart, LinkedList<HtmlPart>> result = new LinkedHashMap<HtmlPart, LinkedList<HtmlPart>>();
 
 		// Parts offsets from this HTML to the others
 		HashMap<ParsedHtml, LinkedList<Integer>> othersPartsOffsets = new HashMap<ParsedHtml, LinkedList<Integer>>();
@@ -885,7 +794,7 @@ public class ParsedHtml
 				continue;
 
 			// The others
-			LinkedList<HtmlPart> othersParts = new LinkedList<ParsedHtml.HtmlPart>();
+			LinkedList<HtmlPart> othersParts = new LinkedList<HtmlPart>();
 			// Handle each of the others' current part, if there is a match
 			for (ParsedHtml curParsedHtml : oParsedHtml)
 			{

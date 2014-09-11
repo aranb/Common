@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import com.eyalzo.common.html.HtmlUtils;
+
 public class HtmlUtilsTest
 {
 	@Test
