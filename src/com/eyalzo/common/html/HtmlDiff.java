@@ -1,7 +1,9 @@
 package com.eyalzo.common.html;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 
 /**
@@ -48,7 +50,8 @@ public class HtmlDiff
 		int lastBreakIndex = -1;
 		// Remember the previous strong offset, so we can realize if a new offset was found
 		int lastStrongOffset = -1;
-		boolean isStrongSync = false;
+		// Consider beginning as a strong sync, for HTMLs that start with title after "<html><head><title>"
+		boolean isStrongSync = true;
 		// Parts of the other, for code readability
 		LinkedList<HtmlPart> oParts = html2.parts;
 
@@ -162,4 +165,79 @@ public class HtmlDiff
 			isStrongSync = false;
 		}
 	}
+
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of all text parts, along with indexes of
+	 * matching text parts in the other HTMLs. When text is completely identical, it returns {@link Integer#MAX_VALUE}
+	 * instead of the index of the other, to save string compare time.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @param minAnchorTextLen
+	 *            The minimal length of a text or HTML tag to be considered as an anchor.
+	 * @param maxOffset
+	 *            The maximal forward offset in number of parts that we will consider for anchor.
+	 * @return List of text indexes (0-based) in the given HTML. Each text part (index) has a secondary list of matching
+	 *         indexes in the other HTMLs. When text is completely identical, it returns {@link Integer#MAX_VALUE}
+	 *         instead of the index of the other, to save string compare time. The secondary list has exactly the same
+	 *         number of items as the number of other HTMLs, ordered by the same order as the given list.
+	 */
+	public static LinkedHashMap<Integer, LinkedList<Integer>> compareGetTextIndexes(ParsedHtml mainHtml,
+			Collection<ParsedHtml> otherHtmls, int minAnchorTextLen, int maxOffset)
+	{
+		// Prepare the result
+		LinkedHashMap<Integer, LinkedList<Integer>> result = new LinkedHashMap<Integer, LinkedList<Integer>>();
+
+		// Compare the main HTML to all others
+		HashMap<ParsedHtml, HtmlDiff> othersPartsOffsets = new HashMap<ParsedHtml, HtmlDiff>();
+		// Compare with each of the other HTMLs
+		for (ParsedHtml curParsedHtml : otherHtmls)
+		{
+			// Get current offsets
+			HtmlDiff curPartsOffsets = new HtmlDiff(mainHtml, curParsedHtml, minAnchorTextLen, maxOffset);
+			othersPartsOffsets.put(curParsedHtml, curPartsOffsets);
+		}
+
+		//
+		// Look for others' matches per text
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			// The others
+			LinkedList<Integer> othersParts = new LinkedList<Integer>();
+			// Handle each of the others' current part, if there is a match
+			for (ParsedHtml curOtherHtml : otherHtmls)
+			{
+				// All offsets between this and the current other
+				HtmlDiff curPartsOffsets = othersPartsOffsets.get(curOtherHtml);
+				// See if there is a clear offset between this text and the current-other's text
+				Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+				if (strongOffset != null)
+				{
+					// Identical text marked as max value
+					othersParts.add(Integer.MAX_VALUE);
+					continue;
+				}
+				// See if there is a weak sync, meaning that the text may be different (or short and identical)
+				Integer weakOffset = curPartsOffsets.textOffsets.get(partIndex);
+				// Add to the list of matching (if) parts per this current part
+				othersParts.add(weakOffset == null ? null : partIndex + weakOffset);
+			}
+
+			// Add the list of all matching per this current text
+			result.put(partIndex, othersParts);
+		}
+
+		return result;
+	}
+
 }

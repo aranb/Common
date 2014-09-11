@@ -104,4 +104,16 @@ public class HtmlUtils
 		String result = matcher.group(1);
 		return result.toLowerCase();
 	}
+
+	/**
+	 * Get text or HTML tag converted to HTML displayable string, where special symbols like &lt; are converted to their
+	 * safe form (as &amp;lt;). Also converts the newlines to visible two characters "\n".
+	 * 
+	 * @return Display safe HTML representation of the text.
+	 */
+	public static String getTextAsHtmlDisplayable(String text)
+	{
+		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
+				.replace("\n", "\\n").replace("\"", "&quot;");
+	}
 }

@@ -764,6 +764,7 @@ public class ParsedHtml
 	 *         key which is the order of text parts in the current HTML. Each part list is ordered by the original given
 	 *         order of other HTMLs.
 	 */
+	@Deprecated
 	public LinkedHashMap<HtmlPart, LinkedList<HtmlPart>> compareGetTexts(Collection<ParsedHtml> oParsedHtml,
 			int minAnchorTextLen, int maxOffset)
 	{

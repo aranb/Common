@@ -42,7 +42,7 @@ public class HtmlPart
 	public String getTextAsHtmlDisplayable()
 	{
 		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
-				.replace("\n", "\\n");
+				.replace("\n", "\\n").replace("\"", "&quot;");
 	}
 
 	/**
