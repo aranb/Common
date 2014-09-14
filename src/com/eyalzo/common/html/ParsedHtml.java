@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.Map.Entry;
 
 import com.eyalzo.common.misc.DateUtils;
 import com.eyalzo.common.misc.MapCounter;
@@ -627,7 +628,7 @@ public class ParsedHtml
 		if (dupRemovedImagesAltText || dupRemovedImagesSource)
 		{
 			result.append("<style type=\"text/css\">\n");
-			result.append("img{ " + (dupRemovedImagesAltText ? "color: red; " : "")
+			result.append("img.removed{ " + (dupRemovedImagesAltText ? "color: red; " : "")
 					+ (dupRemovedImagesSource ? "border:1px dotted red; " : "") + "}");
 			result.append("</style>\n");
 		}
@@ -742,6 +743,12 @@ public class ParsedHtml
 				curPart.text = curPart.text.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"", " alt=\"(alt)\"");
 			if (removeImagesAltText)
 				curPart.text = curPart.text.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"", " title=\"(title)\"");
+			// Write class name, for coloring
+			// curPart.text = curPart.text.replaceFirst("[iI][mM][gG][ \\n]*", "img class=\"removed\" ");
+			// Write class name, for coloring
+			// curPart.text = curPart.text.replaceFirst("[iI][mM][gG][ \\n]*",
+			// "img style=\"color: red; border:1px dotted red;\" ");
+			System.out.println(curPart.text);
 		}
 	}
 
@@ -857,5 +864,41 @@ public class ParsedHtml
 		}
 
 		return result;
+	}
+
+	public void dupAnonymizeText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
+			int instancesToConsiderCommon, boolean toSurroundWithFrame, boolean toShowTooltip)
+	{
+		verifyPartsDup();
+
+		for (Entry<Integer, LinkedList<String>> entry : compareGetTextStrings.entrySet())
+		{
+			int curPartIndex = entry.getKey();
+			LinkedList<String> othersStrings = entry.getValue();
+			HtmlPart curPart = dupParts.get(curPartIndex);
+			// Count how many are identical
+			int identical = 0;
+			for (String curText : othersStrings)
+			{
+				if (curText == null)
+				{
+					identical++;
+					if (identical >= instancesToConsiderCommon)
+						break;
+				}
+			}
+			// Check if need to remove the text
+			if (identical < instancesToConsiderCommon)
+			{
+				int moreOthersNeeded = instancesToConsiderCommon - identical;
+				int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings, moreOthersNeeded);
+				int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings, moreOthersNeeded,
+						curPart.text.length() - commonPrefixLen);
+				int lastPartIndex = curPart.text.length() - commonSuffixLen;
+				curPart.text = curPart.text.substring(0, commonPrefixLen) + "<span style=\"border:1px dotted red;\">"
+						+ anonymizeCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true) + "</span>"
+						+ curPart.text.substring(lastPartIndex);
+			}
+		}
 	}
 }

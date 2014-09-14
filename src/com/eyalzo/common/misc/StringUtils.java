@@ -749,4 +749,120 @@ public class StringUtils
 
 		return String.format("%,.2f TB", (double) bytes / 1000000000000L);
 	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common prefix.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings.
+	 * @param minOthers
+	 *            The number of "best" others to compare with the base string. If zero, the result will be the length of
+	 *            the base string.
+	 * @return The longest common prefix found between the base string and a minimal number of other strings that are
+	 *         most similar to the base.
+	 */
+	public static int getLongestCommonPrefix(String baseString, Collection<String> others, int minOthers)
+	{
+		// Sanity check
+		if (minOthers <= 0)
+			return baseString.length();
+		if (others == null || others.isEmpty() || minOthers > others.size() || minOthers <= 0)
+			return 0;
+
+		LinkedList<String> othersDup = new LinkedList<String>(others);
+		for (int i = 0; i < baseString.length(); i++)
+		{
+			char c = baseString.charAt(i);
+			int matched = 0;
+			for (Iterator<String> it = othersDup.iterator(); it.hasNext();)
+			{
+				// Fast quit when there is no chance to get any better result
+				if (othersDup.size() - 1 + matched < minOthers)
+					return i;
+				String curOther = it.next();
+				// If the other string is too short
+				if (curOther == null || curOther.length() <= i)
+				{
+					it.remove();
+					continue;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(i);
+				if (c == o)
+				{
+					matched++;
+				} else
+				{
+					it.remove();
+				}
+			}
+			// Fast quit when there is no chance to get any better result
+			if (matched < minOthers)
+				return i;
+		}
+
+		return baseString.length();
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common suffix.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings.
+	 * @param minOthers
+	 *            The number of "best" others to compare with the base string. If zero, the result will be the length of
+	 *            the base string.
+	 * @return The longest common prefix found between the base string and a minimal number of other strings that are
+	 *         most similar to the base.
+	 */
+	public static int getLongestCommonSuffix(String baseString, Collection<String> others, int minOthers, int maxResult)
+	{
+		// Sanity check
+		if (minOthers <= 0)
+			return baseString.length();
+		if (others == null || others.isEmpty() || minOthers > others.size() || minOthers <= 0 || maxResult <= 0)
+			return 0;
+
+		LinkedList<String> othersDup = new LinkedList<String>(others);
+		for (int i = 0; i < baseString.length(); i++)
+		{
+			// Enough?
+			if (i >= maxResult)
+				return i;
+			// Start comparing with others
+			char c = baseString.charAt(baseString.length() - i - 1);
+			int matched = 0;
+			for (Iterator<String> it = othersDup.iterator(); it.hasNext();)
+			{
+				// Fast quit when there is no chance to get any better result
+				if (othersDup.size() - 1 + matched < minOthers)
+					return i;
+				String curOther = it.next();
+				// If the other string is too short
+				if (curOther == null || curOther.length() <= i)
+				{
+					it.remove();
+					continue;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(curOther.length() - 1 - i);
+				if (c == o)
+				{
+					matched++;
+				} else
+				{
+					it.remove();
+				}
+			}
+			// Fast quit when there is no chance to get any better result
+			if (matched < minOthers)
+				return i;
+		}
+
+		return baseString.length();
+	}
 }

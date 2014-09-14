@@ -2,6 +2,8 @@ package com.eyalzo.common.misc;
 
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
+
 import org.junit.Test;
 
 public class StringUtilsTest
@@ -63,5 +65,55 @@ public class StringUtilsTest
 		assertEquals(true, StringUtils.isTextCountry("United States"));
 		assertEquals(true, StringUtils.isTextCountry("United states"));
 		assertEquals(false, StringUtils.isTextCountry("United States of America"));
+	}
+
+	@Test
+	public void testGetLongestPrefix()
+	{
+		int result;
+		String baseString = "Hello world";
+		ArrayList<String> others = new ArrayList<String>();
+		others.add("");
+
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 0);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 1);
+		assertEquals(0, result);
+
+		others.add("Second");
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 0);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 1);
+		assertEquals(0, result);
+
+		others.add("Hello third");
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 0);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 1);
+		assertEquals(6, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 2);
+		assertEquals(0, result);
+
+		others.add("Hello word");
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 0);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 1);
+		assertEquals(9, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 2);
+		assertEquals(6, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 3);
+		assertEquals(0, result);
+
+		others.add("Hello world");
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 0);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 1);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 2);
+		assertEquals(9, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 3);
+		assertEquals(6, result);
+		result = StringUtils.getLongestCommonPrefix(baseString, others, 4);
+		assertEquals(0, result);
 	}
 }
