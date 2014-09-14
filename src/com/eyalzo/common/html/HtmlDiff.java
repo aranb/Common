@@ -235,4 +235,133 @@ public class HtmlDiff
 		return result;
 	}
 
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of all text parts, along with list of text
+	 * parts in the other HTMLs. When text is completely identical, it returns a null instead of the index of the other,
+	 * to save string compare time.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @return List of text indexes (0-based) in the given HTML. Each text part (index) has a secondary list of matching
+	 *         parts in the other HTMLs. When text is completely identical, it returns a null instead of the text of the
+	 *         other, to save string compare time. The secondary list may have less items than the number of HTMLs.
+	 */
+	public static LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings(ParsedHtml mainHtml,
+			Collection<HtmlDiff> otherHtmls, LinkedList<ParsedHtml> otherParsed)
+	{
+		// Prepare the result
+		LinkedHashMap<Integer, LinkedList<String>> result = new LinkedHashMap<Integer, LinkedList<String>>();
+
+		//
+		// Look for others' matches per text
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			// The others
+			LinkedList<String> othersParts = new LinkedList<String>();
+			// Handle each of the others' current part, if there is a match
+			int htmlIndex = -1;
+			for (HtmlDiff curPartsOffsets : otherHtmls)
+			{
+				htmlIndex++;
+				// See if there is a clear offset between this text and the current-other's text
+				Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+				if (strongOffset != null)
+				{
+					// Identical text marked as null at the beginning
+					othersParts.addFirst(null);
+					continue;
+				}
+				// See if there is a weak sync, meaning that the text may be different (or short and identical)
+				Integer weakOffset = curPartsOffsets.textOffsets.get(partIndex);
+				if (weakOffset == null)
+					continue;
+
+				// Add to the list
+				ParsedHtml curOtherHtml = otherParsed.get(htmlIndex);
+				HtmlPart curOtherPart = curOtherHtml.parts.get(partIndex + weakOffset);
+				othersParts.add(curOtherPart.text);
+			}
+
+			// Add the list of all matching per this current text
+			result.put(partIndex, othersParts);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of images that do not have enough identical
+	 * matches.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of the exact same image to consider it as common.
+	 * @return List of image indexes (0-based) in the given HTML.
+	 */
+	public static LinkedList<Integer> compareGetRareImagesIndexes(ParsedHtml mainHtml, Collection<HtmlDiff> otherHtmls,
+			int instancesToConsiderCommon)
+	{
+		// Prepare the result
+		LinkedList<Integer> result = new LinkedList<Integer>();
+
+		//
+		// Look for others' matches per image
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.HTML_ELEMENT)
+				continue;
+
+			String tagName = HtmlUtils.getHtmlTagName(curPart.text);
+			if (tagName == null || !tagName.equals("img"))
+				continue;
+
+			boolean enoughForCommon = false;
+
+			// Start checking only if it makes sense
+			if (instancesToConsiderCommon <= otherHtmls.size())
+			{
+				int identical = 0;
+				// Handle each of the others' current part, if there is a match
+				for (HtmlDiff curPartsOffsets : otherHtmls)
+				{
+					// See if there is a clear offset between this text and the current-other's text
+					Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+					if (strongOffset != null)
+					{
+						identical++;
+						// If already found enough identical images, then quit now to save time
+						if (identical >= instancesToConsiderCommon)
+						{
+							enoughForCommon = true;
+							break;
+						}
+					}
+				}
+			}
+
+			// If not enough to consider common, then add to the result (rare images)
+			if (!enoughForCommon)
+				result.add(partIndex);
+		}
+
+		return result;
+	}
 }

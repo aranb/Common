@@ -745,6 +745,50 @@ public class ParsedHtml
 		}
 	}
 
+	/**
+	 * Anonymize images that are found in a given list of 0-based indexes to images.
+	 * 
+	 * @param imageRemoveIndexes
+	 *            0-based list of indexes to images to be handled.
+	 * @param removeImagesSource
+	 * @param removeImagesAltText
+	 * @param removeImagesTitle
+	 */
+	public void dupAnonymizeImages(Collection<Integer> imageRemoveIndexes, boolean removeImagesSource,
+			boolean removeImagesAltText, boolean removeImagesTitle)
+	{
+		if (imageRemoveIndexes == null || !removeImagesAltText && !removeImagesSource && !removeImagesTitle)
+			return;
+
+		dupRemovedImagesAltText = dupRemovedImagesAltText || removeImagesAltText;
+		dupRemovedImagesSource = dupRemovedImagesSource || removeImagesSource;
+
+		// Must call it before accessing the dup
+		verifyPartsDup();
+
+		for (Integer curPartIndex : imageRemoveIndexes)
+		{
+			// Make sure the index is usable
+			if (curPartIndex == null || curPartIndex < 0 || curPartIndex >= parts.size())
+				continue;
+
+			HtmlPart curPart = dupParts.get(curPartIndex);
+			if (curPart.type != HtmlPartType.HTML_ELEMENT)
+				continue;
+
+			String tagName = HtmlUtils.getHtmlTagName(curPart.text);
+			if (tagName == null || !tagName.equals("img"))
+				continue;
+
+			if (removeImagesSource)
+				curPart.text = curPart.text.replaceFirst("[ \\n]src[ \\n]*=[ \\n]*\"[^\"]+\"", " ");
+			if (removeImagesAltText)
+				curPart.text = curPart.text.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"", " alt=\"(alt)\"");
+			if (removeImagesAltText)
+				curPart.text = curPart.text.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"", " title=\"(title)\"");
+		}
+	}
+
 	private static String anonymizeCharacters(String text, boolean anonymizeDigits)
 	{
 		// TODO handle all the special symbols like "&lt;" etc.
