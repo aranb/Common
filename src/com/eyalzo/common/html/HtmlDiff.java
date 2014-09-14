@@ -1,7 +1,9 @@
 package com.eyalzo.common.html;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 
 /**
@@ -23,6 +25,8 @@ public class HtmlDiff
 	 * accurate estimations, using the sync points.
 	 */
 	public HashMap<Integer, Integer>	textOffsets;
+	public int							statTextIdentical;
+	public int							statTextOther;
 
 	/**
 	 * @param html1
@@ -48,7 +52,8 @@ public class HtmlDiff
 		int lastBreakIndex = -1;
 		// Remember the previous strong offset, so we can realize if a new offset was found
 		int lastStrongOffset = -1;
-		boolean isStrongSync = false;
+		// Consider beginning as a strong sync, for HTMLs that start with title after "<html><head><title>"
+		boolean isStrongSync = true;
 		// Parts of the other, for code readability
 		LinkedList<HtmlPart> oParts = html2.parts;
 
@@ -75,12 +80,17 @@ public class HtmlDiff
 						lastStrongOffset = oIndex - index;
 						syncOffsets.add(lastStrongOffset);
 						oIndex++;
+						if (curPart.type == HtmlPartType.TEXT_REAL)
+							statTextIdentical++;
 						continue;
 					}
 
 					// If this is a text on both sides, we can assume a weak sync
 					if (curPart.type == HtmlPartType.TEXT_REAL && oCurPart.type == HtmlPartType.TEXT_REAL)
+					{
 						textOffsets.put(index, oIndex - index);
+						statTextOther++;
+					}
 				}
 
 				// TODO consider setting the lastBreakIndex here, if short HTML mismatch
@@ -102,6 +112,8 @@ public class HtmlDiff
 				// On exact match
 				if (curPart.equals(oCurPart))
 				{
+					if (curPart.type == HtmlPartType.TEXT_REAL)
+						statTextIdentical++;
 					syncOffsets.add(i - index);
 					isStrongSync = true;
 					// Next time, will start search at the next part
@@ -115,7 +127,7 @@ public class HtmlDiff
 			{
 				// Try to fix backward some weak matching texts
 
-				System.out.println("resync " + (index + 1));
+				// System.out.println("resync " + (index + 1));
 				// Do this routine only if the new offset equals the last strong one
 				if (lastStrongOffset == syncOffsets.get(syncOffsets.size() - 1))
 				{
@@ -124,8 +136,9 @@ public class HtmlDiff
 						if (html1.parts.get(i).type == HtmlPartType.TEXT_REAL
 								&& html2.parts.get(i + lastStrongOffset).type == HtmlPartType.TEXT_REAL)
 						{
-							System.out.println("fix " + (i + 1));
+							// System.out.println("fix " + (i + 1));
 							textOffsets.put(i, lastStrongOffset);
+							statTextOther++;
 						}
 					}
 				} else
@@ -147,7 +160,8 @@ public class HtmlDiff
 				// If this is a text on both sides, we can assume a weak sync
 				if (oCurPart.type == HtmlPartType.TEXT_REAL)
 				{
-					System.out.println("weak " + (index + 1));
+					// System.out.println("weak " + (index + 1));
+					statTextOther++;
 					textOffsets.put(index, oIndex - index);
 				}
 			}
@@ -155,11 +169,199 @@ public class HtmlDiff
 			if (curPart.type == HtmlPartType.HTML_ELEMENT)
 			{
 				lastBreakIndex = index;
-				System.out.println("break " + (index + 1));
+				// System.out.println("break " + (index + 1));
 			}
 			// This point is not a strong sync anymore
 			syncOffsets.add(null);
 			isStrongSync = false;
 		}
+	}
+
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of all text parts, along with indexes of
+	 * matching text parts in the other HTMLs. When text is completely identical, it returns {@link Integer#MAX_VALUE}
+	 * instead of the index of the other, to save string compare time.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @return List of text indexes (0-based) in the given HTML. Each text part (index) has a secondary list of matching
+	 *         indexes in the other HTMLs. When text is completely identical, it returns {@link Integer#MAX_VALUE}
+	 *         instead of the index of the other, to save string compare time. The secondary list has exactly the same
+	 *         number of items as the number of other HTMLs, ordered by the same order as the given list.
+	 */
+	public static LinkedHashMap<Integer, LinkedList<Integer>> compareGetTextIndexes(ParsedHtml mainHtml,
+			Collection<HtmlDiff> otherHtmls)
+	{
+		// Prepare the result
+		LinkedHashMap<Integer, LinkedList<Integer>> result = new LinkedHashMap<Integer, LinkedList<Integer>>();
+
+		//
+		// Look for others' matches per text
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			// The others
+			LinkedList<Integer> othersParts = new LinkedList<Integer>();
+			// Handle each of the others' current part, if there is a match
+			for (HtmlDiff curPartsOffsets : otherHtmls)
+			{
+				// See if there is a clear offset between this text and the current-other's text
+				Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+				if (strongOffset != null)
+				{
+					// Identical text marked as max value
+					othersParts.add(Integer.MAX_VALUE);
+					continue;
+				}
+				// See if there is a weak sync, meaning that the text may be different (or short and identical)
+				Integer weakOffset = curPartsOffsets.textOffsets.get(partIndex);
+				// Add to the list of matching (if) parts per this current part
+				othersParts.add(weakOffset == null ? null : partIndex + weakOffset);
+			}
+
+			// Add the list of all matching per this current text
+			result.put(partIndex, othersParts);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of all text parts, along with list of text
+	 * parts in the other HTMLs. When text is completely identical, it returns a null instead of the index of the other,
+	 * to save string compare time.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @return List of text indexes (0-based) in the given HTML. Each text part (index) has a secondary list of matching
+	 *         parts in the other HTMLs. When text is completely identical, it returns a null instead of the text of the
+	 *         other, to save string compare time. The secondary list may have less items than the number of HTMLs.
+	 */
+	public static LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings(ParsedHtml mainHtml,
+			Collection<HtmlDiff> otherHtmls, LinkedList<ParsedHtml> otherParsed)
+	{
+		// Prepare the result
+		LinkedHashMap<Integer, LinkedList<String>> result = new LinkedHashMap<Integer, LinkedList<String>>();
+
+		//
+		// Look for others' matches per text
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+
+			// The others
+			LinkedList<String> othersParts = new LinkedList<String>();
+			// Handle each of the others' current part, if there is a match
+			int htmlIndex = -1;
+			for (HtmlDiff curPartsOffsets : otherHtmls)
+			{
+				htmlIndex++;
+				// See if there is a clear offset between this text and the current-other's text
+				Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+				if (strongOffset != null)
+				{
+					// Identical text marked as null at the beginning
+					othersParts.addFirst(null);
+					continue;
+				}
+				// See if there is a weak sync, meaning that the text may be different (or short and identical)
+				Integer weakOffset = curPartsOffsets.textOffsets.get(partIndex);
+				if (weakOffset == null)
+					continue;
+
+				// Add to the list
+				ParsedHtml curOtherHtml = otherParsed.get(htmlIndex);
+				HtmlPart curOtherPart = curOtherHtml.parts.get(partIndex + weakOffset);
+				othersParts.add(curOtherPart.text);
+			}
+
+			// Add the list of all matching per this current text
+			result.put(partIndex, othersParts);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Compare a given main HTML to several others, and return the indexes of images that do not have enough identical
+	 * matches.
+	 * 
+	 * @param mainHtml
+	 *            The Base HTML that is being compared with all the others.
+	 * @param otherHtmls
+	 *            The other parsed HTMLs to try to match to this.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of the exact same image to consider it as common.
+	 * @return List of image indexes (0-based) in the given HTML.
+	 */
+	public static LinkedList<Integer> compareGetRareImagesIndexes(ParsedHtml mainHtml, Collection<HtmlDiff> otherHtmls,
+			int instancesToConsiderCommon)
+	{
+		// Prepare the result
+		LinkedList<Integer> result = new LinkedList<Integer>();
+
+		//
+		// Look for others' matches per image
+		//
+
+		// 0-based index of the current part
+		int partIndex = -1;
+		for (HtmlPart curPart : mainHtml.parts)
+		{
+			partIndex++;
+			if (curPart.type != HtmlPartType.HTML_ELEMENT)
+				continue;
+
+			String tagName = HtmlUtils.getHtmlTagName(curPart.text);
+			if (tagName == null || !tagName.equals("img"))
+				continue;
+
+			boolean enoughForCommon = false;
+
+			// Start checking only if it makes sense
+			if (instancesToConsiderCommon <= otherHtmls.size())
+			{
+				int identical = 0;
+				// Handle each of the others' current part, if there is a match
+				for (HtmlDiff curPartsOffsets : otherHtmls)
+				{
+					// See if there is a clear offset between this text and the current-other's text
+					Integer strongOffset = curPartsOffsets.syncOffsets.get(partIndex);
+					if (strongOffset != null)
+					{
+						identical++;
+						// If already found enough identical images, then quit now to save time
+						if (identical >= instancesToConsiderCommon)
+						{
+							enoughForCommon = true;
+							break;
+						}
+					}
+				}
+			}
+
+			// If not enough to consider common, then add to the result (rare images)
+			if (!enoughForCommon)
+				result.add(partIndex);
+		}
+
+		return result;
 	}
 }
