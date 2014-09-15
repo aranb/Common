@@ -16,20 +16,25 @@ public class HtmlPart
 	 */
 	public HtmlPart(String text)
 	{
-		this.text = text;
 		// Determine the basic type, not handling the style/script case for now
 		if (text.startsWith("<"))
+		{
 			type = HtmlPartType.HTML_ELEMENT;
+			this.text = text;
+		}
 		// Check if it is only whitespaces or &nbsp;
 		else if (text.toLowerCase().replace("&nbsp;", " ").trim().isEmpty())
 			type = HtmlPartType.TEXT_EMPTY;
 		else
+		{
 			type = HtmlPartType.TEXT_REAL;
+			this.text = text;
+		}
 	}
 
 	public HtmlPart(HtmlPart o)
 	{
-		this.text = new String(o.text);
+		this.text = o.text == null ? null : new String(o.text);
 		this.type = o.type;
 	}
 

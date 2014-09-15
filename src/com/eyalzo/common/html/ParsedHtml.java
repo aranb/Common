@@ -2,7 +2,6 @@ package com.eyalzo.common.html;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
@@ -637,7 +636,7 @@ public class ParsedHtml
 		// Use the right part list - original or processed
 		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
 		{
-			if (curPart.text.isEmpty())
+			if (curPart.text == null || curPart.text.isEmpty())
 				continue;
 			result.append(curPart.text);
 		}
@@ -928,7 +927,7 @@ public class ParsedHtml
 			int instancesToConsiderCommon, String spanStyleWhenRemoved)
 	{
 		// Check how many others have it
-		if (basePart.text.trim().length() == 0)
+		if (basePart.text.length() == 0)
 			return basePart.text;
 
 		String tokens[] = basePart.text.replace("&nbsp;", " ").trim().split("[ \n\t]+");
@@ -940,7 +939,11 @@ public class ParsedHtml
 			int foundCount = 0;
 
 			// Too short?
-			if (curToken.length() >= 2)
+			if (curToken.length() < 2)
+			{
+				if (curToken.equals("a") || curToken.equalsIgnoreCase("I"))
+					foundCount = othersStrings.size();
+			} else
 			{
 				// Count in others
 				for (String curOther : othersStrings)
