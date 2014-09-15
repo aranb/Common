@@ -2,6 +2,7 @@ package com.eyalzo.common.html;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
@@ -866,8 +867,21 @@ public class ParsedHtml
 		return result;
 	}
 
+	/**
+	 * @param compareGetTextStrings
+	 *            The result of {@link HtmlDiff#compareGetTextStrings(ParsedHtml, Collection, LinkedList)}.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of complete text and/or tokens and/or prefix/suffix to consider it common and
+	 *            leave it intact.
+	 * @param spanStyleWhenRemoved
+	 *            HTML style to use in &lt;span&gt; surrounding each removed item. Can be null to avoid adding the span
+	 *            altogether.
+	 * @param tokens
+	 *            Mode to use when the entire sentence is not common, so need to go deeper. If true, remove tokens and
+	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
+	 */
 	public void dupAnonymizeText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
-			int instancesToConsiderCommon, boolean toSurroundWithFrame, boolean toShowTooltip)
+			int instancesToConsiderCommon, String spanStyleWhenRemoved, boolean tokens)
 	{
 		verifyPartsDup();
 
@@ -887,18 +901,111 @@ public class ParsedHtml
 						break;
 				}
 			}
-			// Check if need to remove the text
+			// Check if need to remove some of the text
 			if (identical < instancesToConsiderCommon)
 			{
 				int moreOthersNeeded = instancesToConsiderCommon - identical;
-				int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings, moreOthersNeeded);
-				int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings, moreOthersNeeded,
-						curPart.text.length() - commonPrefixLen);
-				int lastPartIndex = curPart.text.length() - commonSuffixLen;
-				curPart.text = curPart.text.substring(0, commonPrefixLen) + "<span style=\"border:1px dotted red;\">"
-						+ anonymizeCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true) + "</span>"
-						+ curPart.text.substring(lastPartIndex);
+				if (tokens)
+				{
+					curPart.text = anonymizeTextTokens(curPart, othersStrings, moreOthersNeeded, spanStyleWhenRemoved);
+				} else
+				{
+					int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings,
+							moreOthersNeeded);
+					int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings,
+							moreOthersNeeded, curPart.text.length() - commonPrefixLen);
+					int lastPartIndex = curPart.text.length() - commonSuffixLen;
+					curPart.text = curPart.text.substring(0, commonPrefixLen)
+							+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
+							+ anonymizeCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true)
+							+ (spanStyleWhenRemoved == null ? "" : "</span>") + curPart.text.substring(lastPartIndex);
+				}
 			}
 		}
+	}
+
+	private String anonymizeTextTokens(HtmlPart basePart, LinkedList<String> othersStrings,
+			int instancesToConsiderCommon, String spanStyleWhenRemoved)
+	{
+		// Check how many others have it
+		if (basePart.text.trim().length() == 0)
+			return basePart.text;
+
+		String tokens[] = basePart.text.replace("&nbsp;", " ").trim().split("[ \n\t]+");
+		String result = "";
+		String removedText = "";
+		String toolTip = "";
+		for (String curToken : tokens)
+		{
+			int foundCount = 0;
+
+			// Too short?
+			if (curToken.length() >= 2)
+			{
+				// Count in others
+				for (String curOther : othersStrings)
+				{
+					// Skip the nulls, that were already considered as identical before calling this method
+					if (curOther == null)
+						continue;
+
+					boolean found = false;
+					int index = -1;
+					while (!found)
+					{
+						index = curOther.indexOf(curToken, index + 1);
+						if (index < 0)
+							break;
+						if (index > 0)
+						{
+							char c = curOther.charAt(index - 1);
+							if (c != ' ' && c != '\t' && c != '\n')
+								continue;
+						}
+						int lastCharIndex = index + curToken.length();
+						if (lastCharIndex < curOther.length())
+						{
+							char c = curOther.charAt(lastCharIndex);
+							if (c != ' ' && c != '\t' && c != '\n')
+								continue;
+						}
+						found = true;
+					}
+					// If found in current other
+					if (found)
+					{
+						foundCount++;
+						if (foundCount == instancesToConsiderCommon)
+							break;
+					}
+				}
+			}
+
+			// Is it private?
+			if (foundCount < instancesToConsiderCommon)
+			{
+				removedText += " " + anonymizeCharacters(curToken, true);
+				toolTip += (curToken.replace("\"", "&quot;") + " ");
+			} else
+			{
+				if (!removedText.isEmpty())
+				{
+					result += " <span "
+							+ (spanStyleWhenRemoved == null ? "" : ("style=\"" + spanStyleWhenRemoved + "\"")
+									+ " title=\"" + toolTip + "\">" + removedText + "</span>");
+					removedText = "";
+					toolTip = "";
+				}
+				result += " " + curToken;
+			}
+		}
+
+		// If ends with removed text
+		if (!removedText.isEmpty())
+			result += " <span "
+					+ (spanStyleWhenRemoved == null ? "" : ("style=\"" + spanStyleWhenRemoved + "\"") + " title=\""
+							+ toolTip + "\">" + removedText + " </span>");
+
+		return result;
 	}
 }
