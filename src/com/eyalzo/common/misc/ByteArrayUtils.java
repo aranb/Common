@@ -45,6 +45,16 @@ public class ByteArrayUtils {
 	    }
 	    return true;
 	}
+	
+	public static boolean endsWith(byte[] input, byte[] pattern) {
+		// check for valid input
+		if (input == null || pattern == null)
+			return false;
+		int pos = input.length - pattern.length;
+		if (pos < 0)
+			return false;
+		return isMatch(input, pos, pattern);
+	}
 
 	public static List<byte[]> split(byte[] input, byte[] pattern) {
 		return split(input, 0, input.length, pattern);
