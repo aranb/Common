@@ -865,4 +865,24 @@ public class StringUtils
 
 		return baseString.length();
 	}
+
+	/**
+	 * Tells if a string contains at least one character or digits. Supports unicode.
+	 * 
+	 * @param baseString
+	 *            The string to examine. Can be null or empty.
+	 * @return True if there is at least one character or digit in the string.
+	 */
+	public static boolean containsAlphaOrDigit(String baseString)
+	{
+		if (baseString == null)
+			return false;
+		for (int i = baseString.length() - 1; i >= 0; i--)
+		{
+			char c = baseString.charAt(i);
+			if (Character.isLetterOrDigit(c))
+				return true;
+		}
+		return false;
+	}
 }

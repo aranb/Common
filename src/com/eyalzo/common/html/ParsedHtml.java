@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 
 import com.eyalzo.common.misc.DateUtils;
 import com.eyalzo.common.misc.MapCounter;
@@ -430,7 +431,7 @@ public class ParsedHtml
 			i++;
 			table.addCell(i, link + i);
 			table.addCell(StringUtils.isTextCurrency(curText.text) ? "+" : null);
-			table.addCell(DateUtils.isDate(curText.text) ? "+" : null);
+			table.addCell(DateUtils.containsDate(curText.text) != null ? "+" : null);
 			table.addCell(StringUtils.isTextCountry(curText.text) ? "+" : null);
 			table.addCell(curText.firstPartIndex);
 			table.addCell(curText.lastPartIndex);
@@ -618,7 +619,7 @@ public class ParsedHtml
 	 * processing methods were called.
 	 * 
 	 * @return HTML body, original or processed, according to state of the internal replication.
-	 * @see ParsedHtml#dupAnonymizeCharacters(boolean)
+	 * @see ParsedHtml#dupMaskCharacters(boolean)
 	 */
 	public String getBody()
 	{
@@ -644,66 +645,7 @@ public class ParsedHtml
 		return result.toString();
 	}
 
-	@Deprecated
-	public String getBody(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle,
-			boolean anonymizeLetters, boolean anonymizeDigits)
-	{
-		// Initialize the buffer with approximate size of result, so save time
-		StringBuffer result = new StringBuffer(length);
-
-		boolean processImages = removeImagesAltText || removeImagesSource || removeImagesTitle;
-		boolean processText = anonymizeDigits || anonymizeLetters;
-
-		//
-		// Style for removed parts
-		//
-		if (removeImagesAltText || removeImagesSource)
-		{
-			result.append("<style type=\"text/css\">\n");
-			result.append("img{ " + (removeImagesAltText ? "color: red; " : "")
-					+ (removeImagesSource ? "border:1px dotted red; " : "") + "}");
-			result.append("</style>\n");
-		}
-
-		//
-		// Build the HTML while processing
-		//
-		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
-		{
-			if (curPart.text.isEmpty())
-				continue;
-
-			// Process image HTML elements
-			if (processImages && curPart.type == HtmlPartType.HTML_ELEMENT)
-			{
-				String tagName = HtmlUtils.getHtmlTagName(curPart.text);
-				if (tagName != null && tagName.equals("img"))
-				{
-					String processedText = curPart.text;
-					if (removeImagesSource)
-						processedText = processedText.replaceFirst("[ \\n]src[ \\n]*=[ \\n]*\"[^\"]+\"", " ");
-					if (removeImagesAltText)
-						processedText = processedText.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"",
-								" alt=\"(alt)\"");
-					if (removeImagesAltText)
-						processedText = processedText.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"",
-								" title=\"(title)\"");
-					result.append(processedText);
-					continue;
-				}
-			} else if (processText && curPart.type == HtmlPartType.TEXT_REAL)
-			{
-				result.append(anonymizeCharacters(curPart.text, true));
-				continue;
-			}
-
-			result.append(curPart.text);
-		}
-
-		return result.toString();
-	}
-
-	public void dupAnonymizeCharacters(boolean anonymizeDigits)
+	public void dupMaskCharacters(boolean maskDigits)
 	{
 		// Must call it before accessing the dup
 		verifyPartsDup();
@@ -713,11 +655,11 @@ public class ParsedHtml
 			if (curPart.type != HtmlPartType.TEXT_REAL)
 				continue;
 
-			curPart.text = anonymizeCharacters(curPart.text, anonymizeDigits);
+			curPart.text = maskCharacters(curPart.text, maskDigits);
 		}
 	}
 
-	public void dupAnonymizeImages(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle)
+	public void dupMaskImages(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle)
 	{
 		if (!removeImagesAltText && !removeImagesSource && !removeImagesTitle)
 			return;
@@ -748,12 +690,12 @@ public class ParsedHtml
 			// Write class name, for coloring
 			// curPart.text = curPart.text.replaceFirst("[iI][mM][gG][ \\n]*",
 			// "img style=\"color: red; border:1px dotted red;\" ");
-			System.out.println(curPart.text);
+			// System.out.println(curPart.text);
 		}
 	}
 
 	/**
-	 * Anonymize images that are found in a given list of 0-based indexes to images.
+	 * Mask images that are found in a given list of 0-based indexes to images.
 	 * 
 	 * @param imageRemoveIndexes
 	 *            0-based list of indexes to images to be handled.
@@ -761,7 +703,7 @@ public class ParsedHtml
 	 * @param removeImagesAltText
 	 * @param removeImagesTitle
 	 */
-	public void dupAnonymizeImages(Collection<Integer> imageRemoveIndexes, boolean removeImagesSource,
+	public void dupMaskImages(Collection<Integer> imageRemoveIndexes, boolean removeImagesSource,
 			boolean removeImagesAltText, boolean removeImagesTitle)
 	{
 		if (imageRemoveIndexes == null || !removeImagesAltText && !removeImagesSource && !removeImagesTitle)
@@ -796,12 +738,12 @@ public class ParsedHtml
 		}
 	}
 
-	private static String anonymizeCharacters(String text, boolean anonymizeDigits)
+	private static String maskCharacters(String text, boolean maskDigits)
 	{
 		// TODO handle all the special symbols like "&lt;" etc.
 		String result = text.replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("[A-Z]", "N")
 				.replaceAll("[a-z]", "a");
-		return anonymizeDigits ? result.replaceAll("[0-9]", "1") : result;
+		return maskDigits ? result.replaceAll("[0-9]", "1") : result;
 	}
 
 	/**
@@ -879,7 +821,7 @@ public class ParsedHtml
 	 *            Mode to use when the entire sentence is not common, so need to go deeper. If true, remove tokens and
 	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
 	 */
-	public void dupAnonymizeText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
+	public void dupMaskText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
 			int instancesToConsiderCommon, String spanStyleWhenRemoved, boolean tokens)
 	{
 		verifyPartsDup();
@@ -901,36 +843,55 @@ public class ParsedHtml
 				}
 			}
 			// Check if need to remove some of the text
-			if (identical < instancesToConsiderCommon)
+			if (identical >= instancesToConsiderCommon)
+				continue;
+
+			int moreOthersNeeded = instancesToConsiderCommon - identical;
+			if (tokens)
 			{
-				int moreOthersNeeded = instancesToConsiderCommon - identical;
-				if (tokens)
-				{
-					curPart.text = anonymizeTextTokens(curPart, othersStrings, moreOthersNeeded, spanStyleWhenRemoved);
-				} else
-				{
-					int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings,
-							moreOthersNeeded);
-					int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings,
-							moreOthersNeeded, curPart.text.length() - commonPrefixLen);
-					int lastPartIndex = curPart.text.length() - commonSuffixLen;
-					curPart.text = curPart.text.substring(0, commonPrefixLen)
-							+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
-							+ anonymizeCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true)
-							+ (spanStyleWhenRemoved == null ? "" : "</span>") + curPart.text.substring(lastPartIndex);
-				}
+				curPart.text = maskTextTokens(curPart.text, othersStrings, moreOthersNeeded, spanStyleWhenRemoved);
+			} else
+			{
+				int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings, moreOthersNeeded);
+				int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings, moreOthersNeeded,
+						curPart.text.length() - commonPrefixLen);
+				int lastPartIndex = curPart.text.length() - commonSuffixLen;
+				curPart.text = curPart.text.substring(0, commonPrefixLen)
+						+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
+						+ maskCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true)
+						+ (spanStyleWhenRemoved == null ? "" : "</span>") + curPart.text.substring(lastPartIndex);
 			}
 		}
 	}
 
-	private String anonymizeTextTokens(HtmlPart basePart, LinkedList<String> othersStrings,
-			int instancesToConsiderCommon, String spanStyleWhenRemoved)
+	private String maskTextTokens(String baseString, LinkedList<String> othersStrings, int instancesToConsiderCommon,
+			String spanStyleWhenRemoved)
 	{
 		// Check how many others have it
-		if (basePart.text.length() == 0)
-			return basePart.text;
+		if (!StringUtils.containsAlphaOrDigit(baseString))
+			return baseString;
 
-		String tokens[] = basePart.text.replace("&nbsp;", " ").trim().split("[ \n\t]+");
+		// TODO temp - need to handle other known types too
+		Matcher matcher = null;
+		if (DateUtils.containsMonthNameShort(baseString))
+		{
+			// System.out.println("Month short: " + baseString.trim());
+			matcher = DateUtils.containsDate(baseString);
+		}
+		if (matcher != null)
+		{
+			int start = matcher.start(1);
+			int end = matcher.end(1);
+			String result = start == 0 ? "" : maskTextTokens(baseString.substring(0, start), othersStrings,
+					instancesToConsiderCommon, spanStyleWhenRemoved);
+			result += DateUtils.maskDate(baseString.substring(start, end));
+			if (end < baseString.length())
+				result += maskTextTokens(baseString.substring(end), othersStrings, instancesToConsiderCommon,
+						spanStyleWhenRemoved);
+			return result;
+		}
+
+		String tokens[] = baseString.replace("&nbsp;", " ").trim().split("[ \n\t]+");
 		String result = "";
 		String removedText = "";
 		String toolTip = "";
@@ -987,7 +948,7 @@ public class ParsedHtml
 			// Is it private?
 			if (foundCount < instancesToConsiderCommon)
 			{
-				removedText += " " + anonymizeCharacters(curToken, true);
+				removedText += " " + maskCharacters(curToken, true);
 				toolTip += (curToken.replace("\"", "&quot;") + " ");
 			} else
 			{
@@ -1007,8 +968,10 @@ public class ParsedHtml
 		if (!removedText.isEmpty())
 			result += " <span "
 					+ (spanStyleWhenRemoved == null ? "" : ("style=\"" + spanStyleWhenRemoved + "\"") + " title=\""
-							+ toolTip + "\">" + removedText + " </span>");
+							+ toolTip + "\">" + removedText + "</span>");
 
+		if (baseString.endsWith(" ") && !result.endsWith(" "))
+			return result + " ";
 		return result;
 	}
 }

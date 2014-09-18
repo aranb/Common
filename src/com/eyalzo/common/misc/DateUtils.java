@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -40,63 +41,149 @@ public class DateUtils
 	/**
 	 * Date format that serves well as sortable string for file names etc. It always takes 19 characters.
 	 */
-	public static final String				DATETIME_FORMAT_SORTABLE	= "yyyy-MM-dd.HH-mm-ss";
-	public static final String				DATE_FORMAT_SORTABLE		= "yyyy-MM-dd";
-	private static final SimpleDateFormat	formatterDateTime			= new SimpleDateFormat(DATETIME_FORMAT_SORTABLE);
-	private static final SimpleDateFormat	formatterDate				= new SimpleDateFormat(DATE_FORMAT_SORTABLE);
-	private static final DateFormat			formatterDateTimeShort		= DateFormat.getDateTimeInstance(
-																				DateFormat.SHORT, DateFormat.MEDIUM,
-																				Locale.UK);
+	public static final String				DATETIME_FORMAT_SORTABLE		= "yyyy-MM-dd.HH-mm-ss";
+	public static final String				DATE_FORMAT_SORTABLE			= "yyyy-MM-dd";
+	private static final SimpleDateFormat	formatterDateTime				= new SimpleDateFormat(
+																					DATETIME_FORMAT_SORTABLE);
+	private static final SimpleDateFormat	formatterDate					= new SimpleDateFormat(DATE_FORMAT_SORTABLE);
+	private static final DateFormat			formatterDateTimeShort			= DateFormat.getDateTimeInstance(
+																					DateFormat.SHORT,
+																					DateFormat.MEDIUM, Locale.UK);
 
-	private static final long				MILLIS_SECOND				= 1000L;
-	private static final long				MILLIS_MINUTE				= 60L * MILLIS_SECOND;
-	private static final long				MILLIS_HOUR					= 60L * MILLIS_MINUTE;
-	private static final long				MILLIS_DAY					= 24L * MILLIS_HOUR;
-	private static final long				MILLIS_YEAR					= 365L * MILLIS_DAY;
+	private static final long				MILLIS_SECOND					= 1000L;
+	private static final long				MILLIS_MINUTE					= 60L * MILLIS_SECOND;
+	private static final long				MILLIS_HOUR						= 60L * MILLIS_MINUTE;
+	private static final long				MILLIS_DAY						= 24L * MILLIS_HOUR;
+	private static final long				MILLIS_YEAR						= 365L * MILLIS_DAY;
 
+	/**
+	 * Day names for replace/masking.
+	 */
+	private static final String				DATE_REPLACE_DAY_NAME_NO_EXT	= "(?:Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)";
 	/**
 	 * Date formats for fast inaccurate validation. Examples: "Friday, April 4, 2014".
 	 */
-	private static final String				DATE_VALIDATOR_DAY_NAME		= "(?:(?:Sun|Mon|Fri)(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Sat(?:urday)?)";
-	private static final String				DATE_VALIDATOR_MONTH_NAME	= "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(Nov|Dec)(?:ember)?)";
-	private static final String[]			DATE_VALIDATOR_FORMATS		= {
-			"[0-9][0-9][\\-/][0-9][0-9][\\-/](?:20|19)[0-9][0-9]",
-			"(?:20|19)[0-9][0-9][\\-/][0-9][0-9][\\-/][0-9][0-9]",
-			"\\b" + DATE_VALIDATOR_DAY_NAME + "[, ]+\\b" + DATE_VALIDATOR_MONTH_NAME
-					+ "[, ]+\\b[1-9](?:[0-9])?(?:[, ]+20[0-9][0-9])?"	};
-	private static LinkedList<Pattern>		patternsDate;
-
+	private static final String				DATE_VALIDATOR_DAY_NAME			= "(?:(?:Sun|Mon|Fri)(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Sat(?:urday)?)";
+	private static final String				DATE_VALIDATOR_MONTH_NAME		= "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|(?:Nov|Dec)(?:ember)?)";
+	private static final String				DATE_VALIDATOR_MONTH_NUMBER		= "(?:0[1-9]|1[012])";
+	private static final String				DATE_VALIDATOR_YEAR				= "(?:20|19)?\\d\\d";
+	private static final String				DATE_VALIDATOR_YEAR_LONG		= "(?:20|19)\\d\\d";
+	private static final String				DATE_VALIDATOR_SEP1				= "(?:[ /\\-\\.]|, )";
+	private static final String				DATE_VALIDATOR_SEP2				= "[ ,./\\-]";
+	private static final String				DATE_VALIDATOR_DAY_OF_MONTH		= "(?:(?:[012])?\\d|3[01])";
+	private static final String				DATE_VALIDATOR_TIMEZONE			= "(?: [A-Z]{1-5})?";
 	/**
-	 * @param text
-	 *            Given text to be examined. Can be null.
-	 * @return True if the string looks like a complete date.
+	 * Short month names, to make relatively fast search in a string and determine if there is a potential for a full
+	 * date there.
 	 */
-	public static boolean isDate(String text)
-	{
-		if (text == null)
-			return false;
+	private static final String[]			DATE_MONTH_NAME_ABBR			= { "Jan", "Feb", "Mar", "Apr", "May",
+			"Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"				};
+	// private static final String[] DATE_VALIDATOR_FORMATS = {
+	// "[0-9][0-9][\\-/][0-9][0-9][\\-/](?:20|19)[0-9][0-9]",
+	// "(?:20|19)[0-9][0-9][\\-/][0-9][0-9][\\-/][0-9][0-9]",
+	// "\\b" + DATE_VALIDATOR_DAY_NAME + "[, \\-]+\\b" + DATE_VALIDATOR_MONTH_NAME
+	// + "[, \\-]+\\b[1-9](?:[0-9])?(?:[, ]+20[0-9][0-9])?",
+	// "\\b" + DATE_VALIDATOR_MONTH_NAME + "[, \\-][0-3][0-9][, \\-]" + DATE_VALIDATOR_YEAR};
+	private static final String[]			DATE_VALIDATOR_FORMATS			= {
+			/** With day name. **/
+			DATE_VALIDATOR_DAY_NAME + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_MONTH_NAME + DATE_VALIDATOR_SEP1
+					+ DATE_VALIDATOR_DAY_OF_MONTH + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_YEAR,
+			DATE_VALIDATOR_MONTH_NAME + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_DAY_OF_MONTH + DATE_VALIDATOR_SEP1
+					+ DATE_VALIDATOR_YEAR,
+			/** Without year, with day name. **/
+			DATE_VALIDATOR_DAY_NAME + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_MONTH_NAME + DATE_VALIDATOR_SEP1
+					+ DATE_VALIDATOR_DAY_OF_MONTH, /** Without year. **/
+			DATE_VALIDATOR_MONTH_NAME + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_DAY_OF_MONTH };
+	private static LinkedList<Pattern>		patternsDateExact;
+	private static LinkedList<Pattern>		patternsDateContains;
+	private static final Pattern			patternMonth					= Pattern.compile(".*\\b("
+																					+ DATE_VALIDATOR_MONTH_NAME
+																					+ ")\\b.*");
+	private static final Pattern			patternDay						= Pattern.compile(".*\\b("
+																					+ DATE_VALIDATOR_DAY_NAME
+																					+ ")\\b.*");
 
-		// Init the patterns if needed
-		if (patternsDate == null)
+	private static void initPatterns()
+	{
+		if (patternsDateContains != null)
+			return;
+
+		patternsDateExact = new LinkedList<Pattern>();
+		patternsDateContains = new LinkedList<Pattern>();
+		for (String curStr : DATE_VALIDATOR_FORMATS)
 		{
-			patternsDate = new LinkedList<Pattern>();
-			for (String curStr : DATE_VALIDATOR_FORMATS)
+			Pattern curPatternExact;
+			Pattern curPatternContains;
+			try
 			{
-				Pattern curPattern;
-				try
-				{
-					curPattern = Pattern.compile(curStr);
-				} catch (Exception e)
-				{
-					// Just to be on the safe side, in case someone adds a broken string
-					continue;
-				}
-				patternsDate.add(curPattern);
+				curPatternExact = Pattern.compile(curStr);
+				// The flags are needed here, so .* will capture newlines
+				curPatternContains = Pattern.compile(".*\\b(" + curStr + ")\\b.*", Pattern.DOTALL);
+				// System.out.println(curPatternContains.pattern());
+			} catch (Exception e)
+			{
+				// Just to be on the safe side, in case someone adds a broken string
+				continue;
 			}
+			patternsDateExact.add(curPatternExact);
+			patternsDateContains.add(curPatternContains);
 		}
 
-		for (Pattern curPattern : patternsDate)
-			if (curPattern.matcher(text).matches())
+	}
+
+	static void printDatePatterns()
+	{
+		initPatterns();
+		for (Pattern curPattern : patternsDateContains)
+			System.out.println(curPattern.pattern());
+	}
+
+	/**
+	 * Check if a given string contains a date string.
+	 * <p>
+	 * Positive examples:
+	 * <ul>
+	 * <li>Oct-20-13 12:33:09 PDT
+	 * </ul>
+	 * 
+	 * @param text
+	 *            Given text to be examined. Can be null.
+	 * @return Null if the string does not contain a date. If a match is found, it returns a matcher with at least one
+	 *         group, so the caller can get the substring with {@link Matcher#group()} or with
+	 *         {@link String#substring(int, int)} using start Matcher.start(1) and end at Matcher.end(1).
+	 */
+	public static Matcher containsDate(String text)
+	{
+		if (text == null)
+			return null;
+
+		initPatterns();
+
+		for (Pattern curPattern : patternsDateContains)
+		{
+			Matcher matcher = curPattern.matcher(text);
+			if (matcher.matches())
+				return matcher;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Fast search for short month name, in an inaccurate manner but something that runs relatively fast and can be used
+	 * before calling the regular expression methods, like {@link DateUtils#containsDate(String)}.
+	 * 
+	 * @param text
+	 *            Given text to be examined. Can be null.
+	 * @return True if the string contains the short form of a month name.
+	 */
+	public static boolean containsMonthNameShort(String text)
+	{
+		if (text == null || text.length() < 3)
+			return false;
+
+		for (String curMonth : DATE_MONTH_NAME_ABBR)
+			if (text.contains(curMonth))
 				return true;
 
 		return false;
@@ -196,5 +283,50 @@ public class DateUtils
 			return String.format("%.1f days", (double) millis / MILLIS_DAY);
 
 		return String.format("%.1f years", (double) millis / MILLIS_YEAR);
+	}
+
+	/**
+	 * Mask date string (exact) by moving the date to 01-Jan-2011 in the same format given.
+	 * 
+	 * @param dateStr
+	 *            Given date string that has at least the month name in short (Jan) or long (January) format.
+	 * @return Date string converted to 01-Jan-2011 in the same format given. If month name is not detected, then the
+	 *         same string given is returned.
+	 */
+	public static String maskDate(String dateStr)
+	{
+		String result;
+
+		//
+		// Month name
+		//
+		Matcher matcher = patternMonth.matcher(dateStr);
+		if (matcher.matches())
+		{
+			int len = matcher.end(1) - matcher.start(1);
+			result = len == 3 ? "Jan" : "January";
+			if (matcher.start(1) > 0)
+				result = dateStr.substring(0, matcher.start(1)) + result;
+			if (matcher.end(1) < dateStr.length())
+				result += dateStr.substring(matcher.end(1));
+		} else
+		{
+			result = dateStr;
+		}
+
+		//
+		// Day name
+		//
+		matcher = patternDay.matcher(result);
+		if (matcher.matches())
+		{
+			int len = matcher.end(1) - matcher.start(1);
+			result = (matcher.start(1) == 0 ? "" : result.substring(0, matcher.start(1)))
+					+ (len == 3 ? "Sun" : "Sunday")
+					+ (matcher.end(1) == result.length() ? "" : result.substring(matcher.end(1)));
+		}
+
+		// Replace digits, and then restore the year (if found)
+		return result.replaceAll("\\d", "1").replaceFirst("1111", "2011");
 	}
 }
