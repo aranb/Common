@@ -88,8 +88,8 @@ public class HtmlDiff
 					// If this is a text on both sides, we can assume a weak sync
 					if (curPart.type == HtmlPartType.TEXT_REAL && oCurPart.type == HtmlPartType.TEXT_REAL)
 					{
-						textOffsets.put(index, oIndex - index);
-						statTextOther++;
+						if (textOffsets.put(index, oIndex - index) == null)
+							statTextOther++;
 					}
 				}
 
@@ -134,11 +134,12 @@ public class HtmlDiff
 					for (int i = lastBreakIndex + 1; i < index; i++)
 					{
 						if (html1.parts.get(i).type == HtmlPartType.TEXT_REAL
-								&& html2.parts.get(i + lastStrongOffset).type == HtmlPartType.TEXT_REAL)
+								&& html2.parts.get(i + lastStrongOffset).type == HtmlPartType.TEXT_REAL
+								&& syncOffsets.get(i) == null)
 						{
 							// System.out.println("fix " + (i + 1));
-							textOffsets.put(i, lastStrongOffset);
-							statTextOther++;
+							if (textOffsets.put(i, lastStrongOffset) == null)
+								statTextOther++;
 						}
 					}
 				} else
@@ -161,8 +162,8 @@ public class HtmlDiff
 				if (oCurPart.type == HtmlPartType.TEXT_REAL)
 				{
 					// System.out.println("weak " + (index + 1));
-					statTextOther++;
-					textOffsets.put(index, oIndex - index);
+					if (textOffsets.put(index, oIndex - index) == null)
+						statTextOther++;
 				}
 			}
 			// Significant break?
