@@ -2,6 +2,7 @@ package com.eyalzo.common.html;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
@@ -408,6 +409,21 @@ public class ParsedHtml
 	public MapCounter<HtmlPartType> getStats()
 	{
 		return statPartsCount;
+	}
+
+	/**
+	 * @return All text parts, after trim. Strings are never empty. Unordered.
+	 */
+	public HashSet<String> getTextTrimmed()
+	{
+		HashSet<String> result = new HashSet<String>();
+		for (HtmlPart curPart : parts)
+		{
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+			result.add(curPart.text.trim());
+		}
+		return result;
 	}
 
 	public DisplayTable webGuiTextProcessed(String link)
@@ -822,7 +838,8 @@ public class ParsedHtml
 	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
 	 */
 	public void dupMaskText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
-			int instancesToConsiderCommon, String spanStyleWhenRemoved, boolean tokens)
+			int instancesToConsiderCommon, String spanStyleWhenRemoved, boolean tokens,
+			MapCounter<String> messagesPerSentence)
 	{
 		verifyPartsDup();
 
@@ -832,14 +849,20 @@ public class ParsedHtml
 			LinkedList<String> othersStrings = entry.getValue();
 			HtmlPart curPart = dupParts.get(curPartIndex);
 			// Count how many are identical
-			int identical = 0;
-			for (String curText : othersStrings)
+			int identical = (int) messagesPerSentence.get(curPart.text.trim());
+			if (identical < instancesToConsiderCommon)
 			{
-				if (curText == null)
+				// TODO this can be removed now, when we have the counter ready before
+				identical = 0;
+				for (String curText : othersStrings)
 				{
-					identical++;
-					if (identical >= instancesToConsiderCommon)
-						break;
+					// TODO a patch
+					if (curText == null)
+					{
+						identical++;
+						if (identical >= instancesToConsiderCommon)
+							break;
+					}
 				}
 			}
 			// Check if need to remove some of the text
