@@ -744,7 +744,7 @@ public class StringUtils
 			return "0";
 
 		if (bytes <= 1000L)
-			return String.format("%,d bytes");
+			return String.format("%,d bytes", bytes);
 
 		if (bytes <= 1000000L)
 			return String.format("%,.2f KB", (double) bytes / 1000);

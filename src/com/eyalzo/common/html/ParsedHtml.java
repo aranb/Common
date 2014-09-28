@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.eyalzo.common.misc.DateUtils;
 import com.eyalzo.common.misc.MapCounter;
@@ -885,6 +886,133 @@ public class ParsedHtml
 						+ (spanStyleWhenRemoved == null ? "" : "</span>") + curPart.text.substring(lastPartIndex);
 			}
 		}
+	}
+
+	/**
+	 * @param compareGetTextStrings
+	 *            The result of {@link HtmlDiff#compareGetTextStrings(ParsedHtml, Collection, LinkedList)}.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of complete text and/or tokens and/or prefix/suffix to consider it common and
+	 *            leave it intact.
+	 * @param spanStyleWhenRemoved
+	 *            HTML style to use in &lt;span&gt; surrounding each removed item. Can be null to avoid adding the span
+	 *            altogether.
+	 * @param tokens
+	 *            Mode to use when the entire sentence is not common, so need to go deeper. If true, remove tokens and
+	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
+	 */
+	public void dupMaskDigitsAndName(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
+			String mainEmailAddress, LinkedList<String> otherEmailAddresses, int instancesToConsiderCommon,
+			String spanStyleWhenRemoved, String spanStyleWhenReplaceDigits, MapCounter<String> messagesPerSentence)
+	{
+		verifyPartsDup();
+
+		String terminators = " ,-.\t\n/\\:";
+		String digitReplacement = (spanStyleWhenReplaceDigits == null ? "" : "<span style=\""
+				+ spanStyleWhenReplaceDigits + "\">")
+				+ "123" + (spanStyleWhenReplaceDigits == null ? "" : "</span>");
+
+		for (Entry<Integer, LinkedList<String>> entry : compareGetTextStrings.entrySet())
+		{
+			int curPartIndex = entry.getKey();
+			HtmlPart curPart = dupParts.get(curPartIndex);
+			// Count how many are identical
+			int identical = (int) messagesPerSentence.get(curPart.text.trim());
+			// Check if need to remove some of the text
+			if (identical >= instancesToConsiderCommon)
+				continue;
+
+			// Leave known types intact
+			String text = curPart.text.replace("&nbsp;", " ").trim();
+			if (StringUtils.isTextCurrency(text) || StringUtils.isTextCountry(text)
+					|| DateUtils.containsDate(text) != null || DateUtils.containsTime(text) != null
+					|| DateUtils.containsDuration(text) != null)
+				continue;
+
+			LinkedList<String> nonTrimedOthers = entry.getValue();
+			LinkedList<String> othersStrings = new LinkedList<String>();
+			for (String curOther : nonTrimedOthers)
+				othersStrings.add(curOther == null ? null : curOther.replace("&nbsp;", " ").trim());
+
+			// Check if it's a name
+			String type;
+			boolean name = StringUtils.emailMatchesName(mainEmailAddress, text)
+					|| emailsMatchNames(otherEmailAddresses, othersStrings, instancesToConsiderCommon);
+			if (name)
+				type = "Name";
+			else
+			{
+				type = getTextType(curPart.text, othersStrings, instancesToConsiderCommon);
+			}
+			if (type != null)
+			{
+				int commonPrefixLen = StringUtils.getLongestCommonPrefixWithTerminators(curPart.text, nonTrimedOthers,
+						terminators);
+				int commonSuffixLen = StringUtils.getLongestCommonSuffixWithTerminators(curPart.text, nonTrimedOthers,
+						terminators);
+
+				curPart.text = (commonPrefixLen > 0 ? curPart.text.substring(0, commonPrefixLen) : "")
+						+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
+						+ "&nbsp;(" + type + ")&nbsp;" + (spanStyleWhenRemoved == null ? "" : "</span>")
+						+ (commonSuffixLen > 0 ? curPart.text.substring(curPart.text.length() - commonSuffixLen) : "");
+				continue;
+			}
+
+			curPart.text = curPart.text.replaceAll("[0-9]{3}", digitReplacement);
+		}
+	}
+
+	public static boolean emailsMatchNames(LinkedList<String> emailAddresses, LinkedList<String> possibleNames,
+			int minMatchForTypeDetection)
+	{
+		if (emailAddresses.isEmpty() || emailAddresses.size() != possibleNames.size())
+			return false;
+
+		for (int i = emailAddresses.size() - 1; i >= 0; i--)
+		{
+			String curEmailAdress = emailAddresses.get(i);
+			String curPossibleName = possibleNames.get(i);
+			if (!StringUtils.emailMatchesName(curEmailAdress, curPossibleName))
+				continue;
+			minMatchForTypeDetection--;
+			if (minMatchForTypeDetection <= 0)
+				return true;
+		}
+		return false;
+	}
+
+	public static boolean isTextContainRegex(String regex, String sampleText, Collection<String> otherText, int minMatch)
+	{
+		Pattern pattern = Pattern.compile(regex);
+		if (pattern.matcher(sampleText).matches())
+			minMatch--;
+		if (minMatch <= 0)
+			return true;
+		for (String curString : otherText)
+		{
+			if (curString != null && pattern.matcher(curString).matches())
+			{
+				minMatch--;
+				if (minMatch <= 0)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	public static String getTextType(String text, Collection<String> otherStrings, int minMatch)
+	{
+		String result = ParsedHtml.isTextContainRegex("[\\*]{7,12}[0-9]{4}", text, otherStrings, minMatch) ? "Card_Num"
+				: ParsedHtml.isTextContainRegex("(?:Amex|American Express|MasterCard|Master[ \\-][Cc]ard|Visa|Diners)",
+						text, otherStrings, minMatch) ? "Card_Pro" : ParsedHtml.isTextContainRegex(
+						"[0-9]+ [a-zA-Z][a-zA-Z ,\\-0-9]+ (dr|Dr|DR|st|St|ST|street|Street|STREET|ave|Ave|AVE)(\\.)?",
+						text, otherStrings, minMatch) ? "Street"
+						: ParsedHtml.isTextContainRegex(
+								"[A-Za-z][a-zA-Z\\.\\-_0-9]*@([a-zA-Z\\-_]+\\.)+([a-zA-Z]{2,3})", text, otherStrings,
+								minMatch) ? "Email" : ParsedHtml.isTextContainRegex(
+								"[A-Z][a-zA-Z]+(,)? [A-Z][A-Z](,)? [0-9]{4,6}(\\-[0-9]{4,6})?", text, otherStrings,
+								minMatch) ? "State" : null;
+		return result;
 	}
 
 	private String maskTextTokens(String baseString, LinkedList<String> othersStrings, int instancesToConsiderCommon,

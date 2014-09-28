@@ -1,30 +1,25 @@
 /**
  * Copyright 2011 Eyal Zohar. All rights reserved.
  * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+ * following conditions are met:
  * 
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+ * disclaimer.
  * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+ * following disclaimer in the documentation and/or other materials provided with the distribution.
  * 
- * THIS SOFTWARE IS PROVIDED BY EYAL ZOHAR ''AS IS'' AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
- * EVENT SHALL EYAL ZOHAR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
- * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY EYAL ZOHAR ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * EYAL ZOHAR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+ * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  * 
- * The views and conclusions contained in the software and documentation are
- * those of the authors and should not be interpreted as representing official
- * policies, either expressed or implied, of Eyal Zohar.
+ * The views and conclusions contained in the software and documentation are those of the authors and should not be
+ * interpreted as representing official policies, either expressed or implied, of Eyal Zohar.
  */
 package com.eyalzo.common.net;
 
@@ -37,8 +32,7 @@ import java.util.regex.Pattern;
 import com.eyalzo.common.misc.Couple;
 
 /**
- * Tools to process a TCP payload that carries HTTP header (both request or
- * response).
+ * Tools to process a TCP payload that carries HTTP header (both request or response).
  * 
  * @author Eyal Zohar
  */
@@ -86,18 +80,15 @@ public class HttpTcpPayload
 	public static final byte[][]	URL_PARAM_BYTES_LINKS				= { "href=".getBytes(), "HREF=".getBytes() };
 
 	/**
-	 * Get the URL part from a TCP payload in HTTP. The first line is expected
-	 * to start with "GET" or "POST" and end with "HTTP/1.1" or "HTTP/1.0". The
-	 * returned URL may differ from the original, as it may be decoded,
-	 * especially when some of the characters are expressed as "%xy" like "%20"
-	 * for space etc.
+	 * Get the URL part from a TCP payload in HTTP. The first line is expected to start with "GET" or "POST" and end
+	 * with "HTTP/1.1" or "HTTP/1.0". The returned URL may differ from the original, as it may be decoded, especially
+	 * when some of the characters are expressed as "%xy" like "%20" for space etc.
 	 * 
 	 * @param payload
 	 *            The full TCP payload, expected to be in an HTTP format.
 	 * @param decode
 	 *            True if the URL should be decoded to UTF-8.
-	 * @return Full URL from a GET/POST method (optionally decoded to UTF-8), or
-	 *         null if no such thing was detected.
+	 * @return Full URL from a GET/POST method (optionally decoded to UTF-8), or null if no such thing was detected.
 	 */
 	public static String getUrlFromPayload(String payload, boolean decode)
 	{
@@ -146,8 +137,7 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * @return The decoded URL by UTF-8, or the original if something went
-	 *         wrong.
+	 * @return The decoded URL by UTF-8, or the original if something went wrong.
 	 */
 	public static String decodeUrl(String original)
 	{
@@ -167,8 +157,8 @@ public class HttpTcpPayload
 	/**
 	 * Get the host name from a TCP payload carrying an HTTP header.
 	 * <p>
-	 * The host name must follow the pattern. It may fail if the TCP payload is
-	 * not complete and/or some kind of encoding was used.
+	 * The host name must follow the pattern. It may fail if the TCP payload is not complete and/or some kind of
+	 * encoding was used.
 	 * 
 	 * @return Host name, or null if something went wrong.
 	 */
@@ -217,8 +207,8 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * @return Length of HTTP header assuming that the header start at the given
-	 *         offset, or -1 if the header end was not found.
+	 * @return Length of HTTP header assuming that the header start at the given offset, or -1 if the header end was not
+	 *         found.
 	 */
 	public static int getHttpHeaderLenFromPayloadStart(byte[] data, int startOffset)
 	{
@@ -276,10 +266,8 @@ public class HttpTcpPayload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return Content length, or zero if anything went wrong.
 	 */
 	public static long getContentLengthFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -310,18 +298,15 @@ public class HttpTcpPayload
 
 	/**
 	 * 
-	 * Purpose: Get the content range from value from the TCP payload carrying
-	 * an HTTP response.
+	 * Purpose: Get the content range from value from the TCP payload carrying an HTTP response.
 	 * 
 	 * @param payload
 	 *            HTTP content payload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return from range, or zero if anything went wrong.
 	 */
 	public static long getContentRangeFromFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -359,20 +344,16 @@ public class HttpTcpPayload
 
 	/**
 	 * 
-	 * Purpose: Get the content range to value from the TCP payload carrying an
-	 * HTTP response.
+	 * Purpose: Get the content range to value from the TCP payload carrying an HTTP response.
 	 * 
 	 * @param payload
 	 *            HTTP content payload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
-	 * @return to range or total range if not exists, or zero if anything went
-	 *         wrong.
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
+	 * @return to range or total range if not exists, or zero if anything went wrong.
 	 */
 	public static long getContentRangeToFromPayload(byte[] payload, int startOffset, int endOffset)
 	{
@@ -423,18 +404,15 @@ public class HttpTcpPayload
 
 	/**
 	 * 
-	 * Purpose: Get the content total range length from value from the TCP
-	 * payload carrying an HTTP response.
+	 * Purpose: Get the content total range length from value from the TCP payload carrying an HTTP response.
 	 * 
 	 * @param payload
 	 *            HTTP content payload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return total range length, or zero if anything went wrong.
 	 */
 	public static long getContentRangeTotalFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -468,16 +446,13 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * Get the host name ("Host:" field) from a TCP payload carrying an HTTP
-	 * request.
+	 * Get the host name ("Host:" field) from a TCP payload carrying an HTTP request.
 	 * 
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return Host name, or null if something went wrong.
 	 */
 	public static String getHostFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -504,18 +479,14 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * Get the referrer ("Referer:" field with "http://" URL prefix) from a TCP
-	 * payload carrying an HTTP request.
+	 * Get the referrer ("Referer:" field with "http://" URL prefix) from a TCP payload carrying an HTTP request.
 	 * 
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
-	 * @return Full URL of referrer without the "http://" prefix, or null if not
-	 *         found or something went wrong.
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
+	 * @return Full URL of referrer without the "http://" prefix, or null if not found or something went wrong.
 	 */
 	public static String getRefererFromPayload(byte[] payload, int startOffset, int endOffset)
 	{
@@ -542,11 +513,9 @@ public class HttpTcpPayload
 
 	/**
 	 * 
-	 * Purpose: Extract the value of the header from the packet payload (up to
-	 * the next new line \r)
+	 * Purpose: Extract the value of the header from the packet payload (up to the next new line \r)
 	 * 
-	 * Notes: This should be called in all the other 'specific' header string
-	 * extractions
+	 * Notes: This should be called in all the other 'specific' header string extractions
 	 * 
 	 * @param payload
 	 * @param header
@@ -599,16 +568,13 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * Get the attachment file name from a TCP payload carrying an HTTP
-	 * response.
+	 * Get the attachment file name from a TCP payload carrying an HTTP response.
 	 * 
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return File name or null if not found.
 	 */
 	public static String getAttachmentFileNameFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -627,10 +593,8 @@ public class HttpTcpPayload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
 	 * @return Etag value or null if not found.
 	 */
 	public static String getEtagFromPayload(byte[] payload, int startOffset, int endOffset)
@@ -642,12 +606,9 @@ public class HttpTcpPayload
 	 * @param startOffset
 	 *            0-based inclusive.
 	 * @param endOffset
-	 *            0-based exclusive. Should point to the first byte that should
-	 *            not be scanned. The byte before should contain the last
-	 *            newline to scan, meaning that is should point to the second
-	 *            new line (\r\n).
-	 * @return Value if field was found, or null if not. If the value is
-	 *         surounded with " or ', they are removed.
+	 *            0-based exclusive. Should point to the first byte that should not be scanned. The byte before should
+	 *            contain the last newline to scan, meaning that is should point to the second new line (\r\n).
+	 * @return Value if field was found, or null if not. If the value is surounded with " or ', they are removed.
 	 */
 	private static String getValueFromPayload(byte[] fieldName, byte[] payload, int startOffset, int endOffset)
 	{
@@ -712,8 +673,8 @@ public class HttpTcpPayload
 	/**
 	 * Get the referer host name from a TCP payload carrying an HTTP header.
 	 * <p>
-	 * The host name must follow the pattern. It may fail if the TCP payload is
-	 * not complete and/or some kind of encoding was used.
+	 * The host name must follow the pattern. It may fail if the TCP payload is not complete and/or some kind of
+	 * encoding was used.
 	 * 
 	 * @return Host name, or null if something went wrong.
 	 */
@@ -762,12 +723,9 @@ public class HttpTcpPayload
 
 	/**
 	 * @param withHttpHeader
-	 *            If the payload contains an HTTP header that needs to be
-	 *            skipped before the hash is calculated.
-	 * @return Hash code of the first content bytes, or -1 if the packet
-	 *         contains all the header but only it, or zero if it does not
-	 *         contain enough content or the header may continue on the next
-	 *         packet.
+	 *            If the payload contains an HTTP header that needs to be skipped before the hash is calculated.
+	 * @return Hash code of the first content bytes, or -1 if the packet contains all the header but only it, or zero if
+	 *         it does not contain enough content or the header may continue on the next packet.
 	 */
 	public static long getStampFromPayload(byte[] payload, int stampBytes, boolean withHttpHeader)
 	{
@@ -810,14 +768,11 @@ public class HttpTcpPayload
 	 * Search for byte array in another byte array.
 	 * 
 	 * @param data
-	 *            Payload bytes, with or without a header. In case of a header,
-	 *            use start offset parameter.
+	 *            Payload bytes, with or without a header. In case of a header, use start offset parameter.
 	 * @param startOffset
-	 *            0-based start offset. Should be zero if the payload start at
-	 *            the beginning of the given array, or a positive number that
-	 *            points to the payload start in the given array.
-	 * @return HTTP response code (2xx to 5xx), or -1 if this can not be a legal
-	 *         HTTP response.
+	 *            0-based start offset. Should be zero if the payload start at the beginning of the given array, or a
+	 *            positive number that points to the payload start in the given array.
+	 * @return HTTP response code (2xx to 5xx), or -1 if this can not be a legal HTTP response.
 	 */
 	public static int getHttpResponseCode(byte[] data, int startOffset)
 	{
@@ -842,17 +797,14 @@ public class HttpTcpPayload
 	 * Search for byte array in another byte array.
 	 * 
 	 * @param data
-	 *            Payload bytes, with or without a header. In case of a header,
-	 *            use start offset parameter.
+	 *            Payload bytes, with or without a header. In case of a header, use start offset parameter.
 	 * @param searchBytes
 	 *            The bytes to search for in the payload.
 	 * @param startOffset
-	 *            0-based start offset. Should be zero if the payload start at
-	 *            the beginning of the given array, or a positive number that
-	 *            points to the payload start in the given array.
+	 *            0-based start offset. Should be zero if the payload start at the beginning of the given array, or a
+	 *            positive number that points to the payload start in the given array.
 	 * @param endOffset
-	 *            0-based end offset, exclusive. The total length of the payload
-	 *            is (end - start).
+	 *            0-based end offset, exclusive. The total length of the payload is (end - start).
 	 * @return 0-based offset of the search, or -1 if not found.
 	 */
 	public static int indexOfBytesInBytes(byte[] data, byte[] searchBytes, int startOffset, int endOffset)
@@ -894,17 +846,14 @@ public class HttpTcpPayload
 	 * Search for byte array in another byte array.
 	 * 
 	 * @param data
-	 *            Payload bytes, with or without a header. In case of a header,
-	 *            use start offset parameter.
+	 *            Payload bytes, with or without a header. In case of a header, use start offset parameter.
 	 * @param searchBytes
 	 *            The bytes to search for in the payload.
 	 * @param startOffset
-	 *            0-based start offset. Should be zero if the payload start at
-	 *            the beginning of the given array, or a positive number that
-	 *            points to the payload start in the given array.
+	 *            0-based start offset. Should be zero if the payload start at the beginning of the given array, or a
+	 *            positive number that points to the payload start in the given array.
 	 * @param endOffset
-	 *            0-based end offset, exclusive. The total length of the payload
-	 *            is (end - start).
+	 *            0-based end offset, exclusive. The total length of the payload is (end - start).
 	 * @return 0-based offset of the search, or -1 if not found.
 	 */
 	public static int indexOfByteInBytes(byte[] data, byte searchByte, int startOffset, int endOffset)
@@ -931,14 +880,11 @@ public class HttpTcpPayload
 	 * Isolate a number in byte array, and return its value.
 	 * 
 	 * @param data
-	 *            Payload bytes, with or without a header. In case of a header,
-	 *            use start offset parameter.
+	 *            Payload bytes, with or without a header. In case of a header, use start offset parameter.
 	 * @param startOffset
-	 *            0-based start offset. Should be zero if the payload start at
-	 *            the beginning of the given array, or a positive number that
-	 *            points to the payload start in the given array.
-	 * @param 0-based end offset, exclusive. The total length of the payload is
-	 *        (end - start).
+	 *            0-based start offset. Should be zero if the payload start at the beginning of the given array, or a
+	 *            positive number that points to the payload start in the given array.
+	 * @param 0-based end offset, exclusive. The total length of the payload is (end - start).
 	 * @return Parsed decimal number, or -1 on error.
 	 */
 	static long bytesToLong(byte[] data, int startOffset, int endOffset)
@@ -1017,10 +963,11 @@ public class HttpTcpPayload
 	}
 
 	/**
-	 * Removes all URLs from "img src" and "a href".
+	 * Removes all URLs from "a href", and maybe also from "img src".
 	 * 
-	 * @return HTML without the URLS that were found in quotes, leaving the
-	 *         quotes empty.
+	 * @param removeImages
+	 *            If to remove also the "img src" URLs.
+	 * @return HTML without the URLS that were found in quotes, leaving the quotes empty.
 	 */
 	public static byte[] htmlWithoutUrls(byte[] sourceHtml, int startOffset, int endOffset, boolean removeImages)
 	{
