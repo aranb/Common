@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -109,6 +110,13 @@ public class StringUtils
 			return true;
 		// Now try the 2-char uppercase
 		return countryNames.contains(trim);
+	}
+
+	public static boolean isTextContainsCreditCardProvider(String text)
+	{
+		return text.contains("Visa") || text.contains("MasterCard") || text.contains("Master Card")
+				|| text.contains("Master-Card") || text.contains("AMEX") || text.contains("Amex")
+				|| text.contains("American Express") || text.contains("Diners");
 	}
 
 	/**
@@ -1015,6 +1023,38 @@ public class StringUtils
 		{
 			char c = baseString.charAt(i);
 			if (Character.isLetterOrDigit(c))
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @param emailAddress
+	 *            Given email address with the host part.
+	 * @param possibleName
+	 *            Any string. Can be null or empty (then the result is false).
+	 * @return True if the email address's left part is at least 3 characters long, and the given name has at least one
+	 *         token (at least 3 characters long) that is contained in the email address.
+	 */
+	public static boolean emailMatchesName(String emailAddress, String possibleName)
+	{
+		if (emailAddress == null || possibleName == null)
+			return false;
+
+		String split[] = emailAddress.split("@");
+		if (split.length != 2)
+			return false;
+
+		emailAddress = split[0].toLowerCase().trim();
+		if (emailAddress.length() <= 2)
+			return false;
+
+		split = possibleName.trim().split("[ ,.-]");
+		for (String curString : split)
+		{
+			if (curString.length() <= 2)
+				continue;
+			if (emailAddress.contains(curString.toLowerCase()))
 				return true;
 		}
 		return false;
