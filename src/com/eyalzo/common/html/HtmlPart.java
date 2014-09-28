@@ -46,6 +46,8 @@ public class HtmlPart
 	 */
 	public String getTextAsHtmlDisplayable()
 	{
+		if (text == null)
+			return "";
 		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;")
 				.replace("\n", "\\n").replace("\"", "&quot;");
 	}

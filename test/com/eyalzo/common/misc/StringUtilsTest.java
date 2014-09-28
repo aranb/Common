@@ -116,4 +116,94 @@ public class StringUtilsTest
 		result = StringUtils.getLongestCommonPrefix(baseString, others, 4);
 		assertEquals(0, result);
 	}
+	
+	@Test
+	public void testGetLongestPrefixWithTerminators()
+	{
+		int result;
+		String baseString = "Hello world";
+		ArrayList<String> others = new ArrayList<String>();
+		others.add("");
+
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, null);
+		assertEquals(0, result);
+		
+		others.add("Hello world again");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, null);
+		assertEquals(0, result);
+
+		others.clear();
+		others.add("Hello world again");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, null);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, " ");
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, " d");
+		assertEquals(11, result);
+		
+		//
+		// Numbers
+		//
+		baseString = "123-456-789";
+		others.clear();
+		others.add("123-4");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, null);
+		assertEquals(5, result);
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, "-");
+		assertEquals(4, result);
+		others.add("123-");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, "-");
+		assertEquals(4, result);
+		others.add("123");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, "-");
+		assertEquals(3, result);
+		others.add("12");
+		result = StringUtils.getLongestCommonPrefixWithTerminators(baseString, others, "-");
+		assertEquals(0, result);
+	}
+	
+	@Test
+	public void testGetLongestSuffixWithTerminators()
+	{
+		int result;
+		String baseString = "Hello world";
+		ArrayList<String> others = new ArrayList<String>();
+		others.add("");
+
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, null);
+		assertEquals(0, result);
+		
+		others.add("Hello world again");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, null);
+		assertEquals(0, result);
+
+		others.clear();
+		others.add("Second Hello world");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, null);
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, " ");
+		assertEquals(11, result);
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, " d");
+		assertEquals(11, result);
+		
+		//
+		// Numbers
+		//
+		baseString = "123-456-789";
+		others.clear();
+		others.add("6-789");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, null);
+		assertEquals(5, result);
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, "-");
+		assertEquals(4, result);
+		others.add("-789");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, "-");
+		assertEquals(4, result);
+		others.add("789");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, "-");
+		assertEquals(3, result);
+		others.add("89");
+		result = StringUtils.getLongestCommonSuffixWithTerminators(baseString, others, "-");
+		assertEquals(0, result);
+	}
 }

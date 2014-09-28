@@ -96,6 +96,14 @@ public class DateUtils
 			DATE_VALIDATOR_MONTH_NAME + DATE_VALIDATOR_SEP1 + DATE_VALIDATOR_DAY_OF_MONTH };
 	private static LinkedList<Pattern>		patternsDateExact;
 	private static LinkedList<Pattern>		patternsDateContains;
+	private static final Pattern			patternTimeContains				= Pattern
+																					.compile(
+																							".*\\b((?:[1-9]|1[0-9]|2[0-3]):[0-5][0-9])\\b.*",
+																							Pattern.DOTALL);
+	private static final Pattern			patternDurationContains			= Pattern
+																					.compile(
+																							".*\\b([0-9](?:[0-9])?hr (?:0|[0-5][0-9])min)\\b.*",
+																							Pattern.DOTALL);
 	private static final Pattern			patternMonth					= Pattern.compile(".*\\b("
 																					+ DATE_VALIDATOR_MONTH_NAME
 																					+ ")\\b.*");
@@ -165,6 +173,30 @@ public class DateUtils
 			if (matcher.matches())
 				return matcher;
 		}
+
+		return null;
+	}
+
+	public static Matcher containsTime(String text)
+	{
+		if (text == null)
+			return null;
+
+		Matcher matcher = patternTimeContains.matcher(text);
+		if (matcher.matches())
+			return matcher;
+
+		return null;
+	}
+
+	public static Matcher containsDuration(String text)
+	{
+		if (text == null)
+			return null;
+
+		Matcher matcher = patternDurationContains.matcher(text);
+		if (matcher.matches())
+			return matcher;
 
 		return null;
 	}

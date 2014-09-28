@@ -779,7 +779,7 @@ public class StringUtils
 			for (Iterator<String> it = othersDup.iterator(); it.hasNext();)
 			{
 				// Fast quit when there is no chance to get any better result
-				if (othersDup.size() - 1 + matched < minOthers)
+				if (othersDup.size() + matched < minOthers)
 					return i;
 				String curOther = it.next();
 				// If the other string is too short
@@ -804,6 +804,140 @@ public class StringUtils
 		}
 
 		return baseString.length();
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common prefix for all.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings. Null others are ignored.
+	 * @param terminators
+	 *            Optional - can be null or empty (ignored). The result will be shorter than the actual common prefix if
+	 *            the base string is longer than the common part, and the common part does not end with this terminator
+	 *            (or the character after it).
+	 * @return The longest common prefix found between the base string and all others. Returns 0 if no others are given
+	 *         (other that is null is just ignored).
+	 */
+	public static int getLongestCommonPrefixWithTerminators(String baseString, Collection<String> others,
+			String terminators)
+	{
+		if (others == null || others.isEmpty())
+			return 0;
+
+		int result;
+		boolean mismatch = false;
+
+		for (result = 0; result < baseString.length(); result++)
+		{
+			char c = baseString.charAt(result);
+			for (String curOther : others)
+			{
+				// Ignore null others
+				if (curOther == null)
+					continue;
+				// If the other string is too short
+				if (curOther.length() <= result)
+				{
+					mismatch = true;
+					break;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(result);
+				if (c != o)
+				{
+					mismatch = true;
+					break;
+				}
+			}
+			// Check if need to return
+			if (mismatch)
+				break;
+		}
+
+		// Check if need to retreat now to terminator limits
+		if (result == 0 || terminators == null || terminators.isEmpty() || result == baseString.length())
+			return result;
+
+		//
+		// Look for a terminator, starting at the character after the common part
+		//
+		for (int i = result; i >= 0; i--)
+		{
+			char c = baseString.charAt(i);
+			if (terminators.contains("" + c))
+				return i == result ? result : i + 1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common suffix for all.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings. Null others are ignored.
+	 * @param terminators
+	 *            Optional - can be null or empty (ignored). The result will be shorter than the actual common suffix if
+	 *            the base string is longer than the common part, and the common part does not start with this
+	 *            terminator (or the character before it).
+	 * @return The longest common suffix found between the base string and all others. Returns 0 if no others are given
+	 *         (other that is null is just ignored).
+	 */
+	public static int getLongestCommonSuffixWithTerminators(String baseString, Collection<String> others,
+			String terminators)
+	{
+		if (others == null || others.isEmpty())
+			return 0;
+
+		int result;
+		boolean mismatch = false;
+
+		for (result = 0; result < baseString.length(); result++)
+		{
+			char c = baseString.charAt(baseString.length() - 1 - result);
+			for (String curOther : others)
+			{
+				// Ignore null others
+				if (curOther == null)
+					continue;
+				// If the other string is too short
+				if (curOther.length() <= result)
+				{
+					mismatch = true;
+					break;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(curOther.length() - 1 - result);
+				if (c != o)
+				{
+					mismatch = true;
+					break;
+				}
+			}
+			// Check if need to return
+			if (mismatch)
+				break;
+		}
+
+		// Check if need to retreat now to terminator limits
+		if (result == 0 || terminators == null || terminators.isEmpty() || result == baseString.length())
+			return result;
+
+		//
+		// Look for a terminator, starting at the character after the common part
+		//
+		for (int i = result; i >= 0; i--)
+		{
+			char c = baseString.charAt(baseString.length() - 1 - i);
+			if (terminators.contains("" + c))
+				return i == result ? result : i + 1;
+		}
+
+		return 0;
 	}
 
 	/**
