@@ -14,7 +14,7 @@ import java.util.List;
 public class ByteArrayUtils {
 	
 	/**
-	 * Get the index of the first occurance of <code>pattern</code> in <code>input</code> starting at <code>pos</code>
+	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code> starting at <code>pos</code>
 	 * 
 	 * @param input
 	 * @param pattern
