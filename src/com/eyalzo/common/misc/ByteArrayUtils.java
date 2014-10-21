@@ -84,7 +84,7 @@ public class ByteArrayUtils {
 	}
 	
 	/**
-	 * A version of {@link String}'s <code>split</code> method for byte arrays, only it does not use regexp.
+	 * A version of {@link String#split(String)} method for byte arrays, only it does not use regexp.
 	 * @param input the input byte arrat
 	 * @param pos the zero-based position to start looking for the pattern from 
 	 * @param length number of bytes to search, starting at <code>pos</code>
