@@ -17,9 +17,10 @@ public class ByteArrayUtils {
 	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code> starting at <code>pos</code>. 
 	 * This method is effective only for very short patterns. For long patterns a more efficient method should be used. 
 	 * 
-	 * @param input
-	 * @param pattern
-	 * @param pos
+	 * @param input the input buffer on which the search is performed
+	 * @param pattern the pattern to look for in the input buffer
+	 * @param pos zero based position in the input buffer where the search starts 
+	 * @param length length of the buffer, starting a <code>pos</code> to search in 
 	 * @return -1 if pattern was not found. Otherwise - return the position in input
 	 */
 	public static int index(byte[] input, int pos, int length, byte[] pattern) {
@@ -34,10 +35,27 @@ public class ByteArrayUtils {
 		return -1;
 	}
 	
+	/**
+	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code> starting at <code>pos</code>. 
+	 * This method is effective only for very short patterns. For long patterns a more efficient method should be used. 
+	 * 
+	 * @param input the input buffer on which the search is performed
+	 * @param pattern the pattern to look for in the input buffer
+	 * @param pos zero based position in the input buffer where the search starts 
+	 * @return -1 if pattern was not found. Otherwise - return the position in input
+	 */
 	public static int index(byte[] input, int pos, byte[] pattern) {
 		return index(input, pos, input.length-pos, pattern);
 	}
 
+	/**
+	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code>. 
+	 * This method is effective only for very short patterns. For long patterns a more efficient method should be used. 
+	 * 
+	 * @param input the input buffer on which the search is performed
+	 * @param pattern the pattern to look for in the input buffer
+	 * @return -1 if pattern was not found. Otherwise - return the position in input
+	 */
 	public static int index(byte[] input, byte[] pattern) {
 		return index(input, 0, input.length, pattern);
 	}
@@ -65,6 +83,14 @@ public class ByteArrayUtils {
 		return split(input, 0, input.length, pattern);
 	}
 	
+	/**
+	 * A version of {@link String}'s <code>split</code> method for byte arrays, only it does not use regexp.
+	 * @param input the input byte arrat
+	 * @param pos the zero-based position to start looking for the pattern from 
+	 * @param length number of bytes to search, starting at <code>pos</code>
+	 * @param pattern the pattern to look for when splitting the array
+	 * @return a {@link List} of byte arrays containing the splits of the <code>input</code>
+	 */
 	public static List<byte[]> split(byte[] input, int pos, int length, byte[] pattern) {
 		List<byte[]> list = new LinkedList<byte[]>();
 	    int blockStart = pos;
