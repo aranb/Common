@@ -14,7 +14,8 @@ import java.util.List;
 public class ByteArrayUtils {
 	
 	/**
-	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code> starting at <code>pos</code>
+	 * Get the index of the first occurrence of <code>pattern</code> in <code>input</code> starting at <code>pos</code>. 
+	 * This method is effective only for very short patterns. For long patterns a more efficient method should be used. 
 	 * 
 	 * @param input
 	 * @param pattern
@@ -35,6 +36,10 @@ public class ByteArrayUtils {
 	
 	public static int index(byte[] input, int pos, byte[] pattern) {
 		return index(input, pos, input.length-pos, pattern);
+	}
+
+	public static int index(byte[] input, byte[] pattern) {
+		return index(input, 0, input.length, pattern);
 	}
 	
 	private static boolean isMatch(byte[] input, int pos, byte[] pattern) {
