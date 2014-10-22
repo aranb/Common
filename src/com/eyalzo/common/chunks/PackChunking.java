@@ -517,7 +517,7 @@ public class PackChunking
 	 * the beginning of a chunk but the last bytes are not.
 	 * <p>
 	 * When using for statistical analysis, beware that anchors cannot be found in the last 47 offsets, because of the
-	 * sliding window size (48). The last chunk is added only if it si not too small and also asked specifically.
+	 * sliding window size (48). The last chunk is added only if it is not too small and also asked specifically.
 	 * 
 	 * @param buffer
 	 *            The given byte buffer.
