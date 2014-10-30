@@ -623,7 +623,8 @@ public class HttpUtils
 		String split[] = hostname.split("\\.");
 		// Minimum is two parts
 		if (split.length < 2)
-			return null;
+			//return null;
+			return hostname; // just return the hostname as the domain...
 
 		//
 		// Check for top-level-domains
