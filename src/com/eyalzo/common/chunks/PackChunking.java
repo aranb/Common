@@ -611,6 +611,110 @@ public class PackChunking
 	}
 
 	/**
+	 * Similar to {@link #getChunks(Collection, byte[], int, int, boolean)} but it does not add duplicates, and it
+	 * returns the number of overlapping bytes.
+	 * <p>
+	 * Get chunks in a given buffer, with limits on minimal or maximal chunk size. It assumes that the start offset is
+	 * the beginning of a chunk but the last bytes are not.
+	 * <p>
+	 * When using for statistical analysis, beware that anchors cannot be found in the last 47 offsets, because of the
+	 * sliding window size (48). The last chunk is added only if it is not too small and also asked specifically.
+	 * 
+	 * @param buffer
+	 *            The given byte buffer.
+	 * @param startOffsetInc
+	 *            Start offset (0-based) of the search. The first anchor can be found in this offset, but involving the
+	 *            47 bytes after it.
+	 * @param endOffsetExc
+	 *            Exclusive 0-based end offset of the search. The last anchor can be found only 48 bytes before that
+	 *            offset.
+	 * @param addLastChunk
+	 *            Use true only if this buffer is the end of a stream/file. Otherwise, the returned offset should be
+	 *            used for further processing. If true the last chunk is added too, unless it is too small.
+	 * @return Number of bytes overlapping other chunks from list and/or this buffer.
+	 */
+	public LinkedList<Chunk> getChunks(MessageDigest md, byte[] buffer,
+			boolean addLastChunk)
+	{
+		LinkedList<Chunk> result = new LinkedList<Chunk>();
+		int startOffsetInc = 0;
+		int endOffsetExc = buffer.length;
+
+		// Get the anchor list
+		LinkedList<Integer> anchorList = getAnchors(buffer, startOffsetInc, endOffsetExc);
+		if (anchorList == null)
+			return result;
+
+		//
+		// Get ready for the first chunk
+		//
+		int prevAnchor = startOffsetInc;
+		Iterator<Integer> it = anchorList.iterator();
+		Integer curAnchor = it.hasNext() ? it.next() : null;
+
+		// On the first round we already have a "previous" and maybe a "current"
+
+		while (true)
+		{
+			// If reached end of block or next anchor is too far
+			if (curAnchor == null || (curAnchor - prevAnchor) > maxChunkSize)
+			{
+				// Chunk end at the largest allowed chunk or end of block
+				int tempAnchor = Math.min(prevAnchor + maxChunkSize, endOffsetExc);
+
+				int chunkLen = tempAnchor - prevAnchor;
+				// If the last chunk is too small
+				if (chunkLen < minChunkSize)
+					return result;
+				// If the last chunk is not the maximum and the stream is not
+				// fully processed
+				if (chunkLen < maxChunkSize && !addLastChunk)
+					return result;
+				// Signature
+				long digest = calcMd(md, buffer, prevAnchor, chunkLen);
+				Chunk chunk = new Chunk(chunkLen, digest, prevAnchor);
+				result.add(chunk);
+				prevAnchor = tempAnchor;
+				continue;
+			}
+
+			// If the anchor is too close
+			if ((curAnchor - prevAnchor) < minChunkSize)
+			{
+				// Skip the anchor and look for the next one
+				curAnchor = it.hasNext() ? it.next() : null;
+				continue;
+			}
+
+			// Here the anchor is fine: ok from first place or fixed
+
+			// Chunk length
+			int chunkLen = curAnchor - prevAnchor;
+			// Calculate SHA-1 on the array from previous anchor (inclusive) to
+			// the current (exclusive)
+			long digest = calcMd(md, buffer, prevAnchor, chunkLen);
+			Chunk chunk = new Chunk(chunkLen, digest, prevAnchor);
+
+			// TODO temp
+//			if (chunkCode == 0x1e5d777a738728L)
+//			{
+//				String text = new String(buffer, prevAnchor, chunkLen);
+//				// System.out.println(String.format("----------\n%08x",
+//				// chunkCode));
+//				// System.out.println(text);
+//			}
+
+			// Check if stamp already exists (overlap) or add new
+			result.add(chunk);
+
+			// Next anchor
+			prevAnchor = curAnchor;
+			curAnchor = it.hasNext() ? it.next() : null;
+		}
+	}
+
+	
+	/**
 	 * Generate a 64-bits code that represents both the SHA-1 (partial) and length (limited).
 	 * 
 	 * @param sha1
