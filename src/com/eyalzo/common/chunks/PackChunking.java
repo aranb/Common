@@ -178,12 +178,12 @@ public class PackChunking
 	/**
 	 * 45 bits for the SHA-1, out of 160 bits.
 	 */
-	private static final long	CHUNK_SHA1_MASK		= 0x00001fffffffffffL;
-	private static final int	CHUNK_SHA1_BITS		= 45;
+	protected static final long	CHUNK_SHA1_MASK		= 0x00001fffffffffffL;
+	protected static final int	CHUNK_SHA1_BITS		= 45;
 	/**
 	 * 19 bits for the length (up to
 	 */
-	private static final long	CHUNK_LEN_MASK		= 0x00007ffff;
+	protected static final long	CHUNK_LEN_MASK		= 0x00007ffff;
 
 	/**
 	 * Initialize an instance of PACK chunking with specific number of bits in mask.
