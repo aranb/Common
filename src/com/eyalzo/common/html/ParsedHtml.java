@@ -946,9 +946,10 @@ public class ParsedHtml
 			}
 			if (type != null)
 			{
-				int commonPrefixLen = StringUtils.getLongestCommonPrefixWithTerminators(text, nonTrimedOthers,
+
+				int commonPrefixLen = StringUtils.getLongestCommonPrefixWithTerminators(curPart.text, nonTrimedOthers,
 						terminators);
-				int commonSuffixLen = StringUtils.getLongestCommonSuffixWithTerminators(text, nonTrimedOthers,
+				int commonSuffixLen = StringUtils.getLongestCommonSuffixWithTerminators(curPart.text, nonTrimedOthers,
 						terminators);
 
 				curPart.text = (commonPrefixLen > 0 ? curPart.text.substring(0, commonPrefixLen) : "")

@@ -125,7 +125,7 @@ public class PackChunking
 	 * <p>
 	 * Beware to add the appropriate switch-case upon change to this value.
 	 */
-	public final static int		MIN_MASK_BITS		= 6;
+	public final static int		MIN_MASK_BITS		= 5;
 	/**
 	 * Maximal number of bits in mask (2^13 = 8K bytes).
 	 * <p>
@@ -218,6 +218,9 @@ public class PackChunking
 		switch (maskBits)
 		{
 		case MIN_MASK_BITS:
+			maskValue = 0x0000001010402080L;
+			break;
+		case 6:
 			maskValue = 0x0000001010482080L;
 			break;
 		case 7:
@@ -986,5 +989,10 @@ public class PackChunking
 		}
 
 		return curChunkList;
+	}
+
+	public int getMaskBits()
+	{
+		return maskBits;
 	}
 }
