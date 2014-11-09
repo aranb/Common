@@ -610,6 +610,8 @@ public class PackChunking
 		}
 	}
 
+	
+	// TODO fix documentation (also of the similar old method??)- looks like this includes duplicates
 	/**
 	 * Similar to {@link #getChunks(Collection, byte[], int, int, boolean)} but it does not add duplicates, and it
 	 * returns the number of overlapping bytes.
@@ -690,12 +692,12 @@ public class PackChunking
 
 			// Chunk length
 			int chunkLen = curAnchor - prevAnchor;
-			// Calculate SHA-1 on the array from previous anchor (inclusive) to
+			// Calculate digest on the array from previous anchor (inclusive) to
 			// the current (exclusive)
 			long digest = calcMd(md, buffer, prevAnchor, chunkLen);
 			Chunk chunk = new Chunk(chunkLen, digest, prevAnchor);
 
-			// TODO temp
+			
 //			if (chunkCode == 0x1e5d777a738728L)
 //			{
 //				String text = new String(buffer, prevAnchor, chunkLen);
