@@ -2,8 +2,12 @@ package com.eyalzo.common.html;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.eyalzo.common.misc.DateUtils;
 import com.eyalzo.common.misc.MapCounter;
@@ -408,6 +412,21 @@ public class ParsedHtml
 		return statPartsCount;
 	}
 
+	/**
+	 * @return All text parts, after trim. Strings are never empty. Unordered.
+	 */
+	public HashSet<String> getTextTrimmed()
+	{
+		HashSet<String> result = new HashSet<String>();
+		for (HtmlPart curPart : parts)
+		{
+			if (curPart.type != HtmlPartType.TEXT_REAL)
+				continue;
+			result.add(curPart.text.trim());
+		}
+		return result;
+	}
+
 	public DisplayTable webGuiTextProcessed(String link)
 	{
 		generateTextProcessedParts();
@@ -429,7 +448,7 @@ public class ParsedHtml
 			i++;
 			table.addCell(i, link + i);
 			table.addCell(StringUtils.isTextCurrency(curText.text) ? "+" : null);
-			table.addCell(DateUtils.isDate(curText.text) ? "+" : null);
+			table.addCell(DateUtils.containsDate(curText.text) != null ? "+" : null);
 			table.addCell(StringUtils.isTextCountry(curText.text) ? "+" : null);
 			table.addCell(curText.firstPartIndex);
 			table.addCell(curText.lastPartIndex);
@@ -617,7 +636,7 @@ public class ParsedHtml
 	 * processing methods were called.
 	 * 
 	 * @return HTML body, original or processed, according to state of the internal replication.
-	 * @see ParsedHtml#dupAnonymizeCharacters(boolean)
+	 * @see ParsedHtml#dupMaskCharacters(boolean)
 	 */
 	public String getBody()
 	{
@@ -627,7 +646,7 @@ public class ParsedHtml
 		if (dupRemovedImagesAltText || dupRemovedImagesSource)
 		{
 			result.append("<style type=\"text/css\">\n");
-			result.append("img{ " + (dupRemovedImagesAltText ? "color: red; " : "")
+			result.append("img.removed{ " + (dupRemovedImagesAltText ? "color: red; " : "")
 					+ (dupRemovedImagesSource ? "border:1px dotted red; " : "") + "}");
 			result.append("</style>\n");
 		}
@@ -635,7 +654,7 @@ public class ParsedHtml
 		// Use the right part list - original or processed
 		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
 		{
-			if (curPart.text.isEmpty())
+			if (curPart.text == null || curPart.text.isEmpty())
 				continue;
 			result.append(curPart.text);
 		}
@@ -643,66 +662,7 @@ public class ParsedHtml
 		return result.toString();
 	}
 
-	@Deprecated
-	public String getBody(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle,
-			boolean anonymizeLetters, boolean anonymizeDigits)
-	{
-		// Initialize the buffer with approximate size of result, so save time
-		StringBuffer result = new StringBuffer(length);
-
-		boolean processImages = removeImagesAltText || removeImagesSource || removeImagesTitle;
-		boolean processText = anonymizeDigits || anonymizeLetters;
-
-		//
-		// Style for removed parts
-		//
-		if (removeImagesAltText || removeImagesSource)
-		{
-			result.append("<style type=\"text/css\">\n");
-			result.append("img{ " + (removeImagesAltText ? "color: red; " : "")
-					+ (removeImagesSource ? "border:1px dotted red; " : "") + "}");
-			result.append("</style>\n");
-		}
-
-		//
-		// Build the HTML while processing
-		//
-		for (HtmlPart curPart : dupParts == null ? parts : dupParts)
-		{
-			if (curPart.text.isEmpty())
-				continue;
-
-			// Process image HTML elements
-			if (processImages && curPart.type == HtmlPartType.HTML_ELEMENT)
-			{
-				String tagName = HtmlUtils.getHtmlTagName(curPart.text);
-				if (tagName != null && tagName.equals("img"))
-				{
-					String processedText = curPart.text;
-					if (removeImagesSource)
-						processedText = processedText.replaceFirst("[ \\n]src[ \\n]*=[ \\n]*\"[^\"]+\"", " ");
-					if (removeImagesAltText)
-						processedText = processedText.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"",
-								" alt=\"(alt)\"");
-					if (removeImagesAltText)
-						processedText = processedText.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"",
-								" title=\"(title)\"");
-					result.append(processedText);
-					continue;
-				}
-			} else if (processText && curPart.type == HtmlPartType.TEXT_REAL)
-			{
-				result.append(anonymizeCharacters(curPart.text, true));
-				continue;
-			}
-
-			result.append(curPart.text);
-		}
-
-		return result.toString();
-	}
-
-	public void dupAnonymizeCharacters(boolean anonymizeDigits)
+	public void dupMaskCharacters(boolean maskDigits)
 	{
 		// Must call it before accessing the dup
 		verifyPartsDup();
@@ -712,11 +672,11 @@ public class ParsedHtml
 			if (curPart.type != HtmlPartType.TEXT_REAL)
 				continue;
 
-			curPart.text = anonymizeCharacters(curPart.text, anonymizeDigits);
+			curPart.text = maskCharacters(curPart.text, maskDigits);
 		}
 	}
 
-	public void dupAnonymizeImages(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle)
+	public void dupMaskImages(boolean removeImagesSource, boolean removeImagesAltText, boolean removeImagesTitle)
 	{
 		if (!removeImagesAltText && !removeImagesSource && !removeImagesTitle)
 			return;
@@ -742,11 +702,17 @@ public class ParsedHtml
 				curPart.text = curPart.text.replaceFirst("[ \\n]alt[ \\n]*=[ \\n]*\"[^\"]+\"", " alt=\"(alt)\"");
 			if (removeImagesAltText)
 				curPart.text = curPart.text.replaceFirst("[ \\n]title[ \\n]*=[ \\n]*\"[^\"]+\"", " title=\"(title)\"");
+			// Write class name, for coloring
+			// curPart.text = curPart.text.replaceFirst("[iI][mM][gG][ \\n]*", "img class=\"removed\" ");
+			// Write class name, for coloring
+			// curPart.text = curPart.text.replaceFirst("[iI][mM][gG][ \\n]*",
+			// "img style=\"color: red; border:1px dotted red;\" ");
+			// System.out.println(curPart.text);
 		}
 	}
 
 	/**
-	 * Anonymize images that are found in a given list of 0-based indexes to images.
+	 * Mask images that are found in a given list of 0-based indexes to images.
 	 * 
 	 * @param imageRemoveIndexes
 	 *            0-based list of indexes to images to be handled.
@@ -754,7 +720,7 @@ public class ParsedHtml
 	 * @param removeImagesAltText
 	 * @param removeImagesTitle
 	 */
-	public void dupAnonymizeImages(Collection<Integer> imageRemoveIndexes, boolean removeImagesSource,
+	public void dupMaskImages(Collection<Integer> imageRemoveIndexes, boolean removeImagesSource,
 			boolean removeImagesAltText, boolean removeImagesTitle)
 	{
 		if (imageRemoveIndexes == null || !removeImagesAltText && !removeImagesSource && !removeImagesTitle)
@@ -789,12 +755,12 @@ public class ParsedHtml
 		}
 	}
 
-	private static String anonymizeCharacters(String text, boolean anonymizeDigits)
+	private static String maskCharacters(String text, boolean maskDigits)
 	{
 		// TODO handle all the special symbols like "&lt;" etc.
 		String result = text.replaceAll("&nbsp;", " ").replaceAll("&amp;", "&").replaceAll("[A-Z]", "N")
 				.replaceAll("[a-z]", "a");
-		return anonymizeDigits ? result.replaceAll("[0-9]", "1") : result;
+		return maskDigits ? result.replaceAll("[0-9]", "1") : result;
 	}
 
 	/**
@@ -856,6 +822,307 @@ public class ParsedHtml
 			result.put(curPart, othersParts);
 		}
 
+		return result;
+	}
+
+	/**
+	 * @param compareGetTextStrings
+	 *            The result of {@link HtmlDiff#compareGetTextStrings(ParsedHtml, Collection, LinkedList)}.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of complete text and/or tokens and/or prefix/suffix to consider it common and
+	 *            leave it intact.
+	 * @param spanStyleWhenRemoved
+	 *            HTML style to use in &lt;span&gt; surrounding each removed item. Can be null to avoid adding the span
+	 *            altogether.
+	 * @param tokens
+	 *            Mode to use when the entire sentence is not common, so need to go deeper. If true, remove tokens and
+	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
+	 */
+	public void dupMaskText(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
+			int instancesToConsiderCommon, String spanStyleWhenRemoved, boolean tokens,
+			MapCounter<String> messagesPerSentence)
+	{
+		verifyPartsDup();
+
+		for (Entry<Integer, LinkedList<String>> entry : compareGetTextStrings.entrySet())
+		{
+			int curPartIndex = entry.getKey();
+			LinkedList<String> othersStrings = entry.getValue();
+			HtmlPart curPart = dupParts.get(curPartIndex);
+			// Count how many are identical
+			int identical = (int) messagesPerSentence.get(curPart.text.trim());
+			if (identical < instancesToConsiderCommon)
+			{
+				// TODO this can be removed now, when we have the counter ready before
+				identical = 0;
+				for (String curText : othersStrings)
+				{
+					// TODO a patch
+					if (curText == null)
+					{
+						identical++;
+						if (identical >= instancesToConsiderCommon)
+							break;
+					}
+				}
+			}
+			// Check if need to remove some of the text
+			if (identical >= instancesToConsiderCommon)
+				continue;
+
+			int moreOthersNeeded = instancesToConsiderCommon - identical;
+			if (tokens)
+			{
+				curPart.text = maskTextTokens(curPart.text, othersStrings, moreOthersNeeded, spanStyleWhenRemoved);
+			} else
+			{
+				int commonPrefixLen = StringUtils.getLongestCommonPrefix(curPart.text, othersStrings, moreOthersNeeded);
+				int commonSuffixLen = StringUtils.getLongestCommonSuffix(curPart.text, othersStrings, moreOthersNeeded,
+						curPart.text.length() - commonPrefixLen);
+				int lastPartIndex = curPart.text.length() - commonSuffixLen;
+				curPart.text = curPart.text.substring(0, commonPrefixLen)
+						+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
+						+ maskCharacters(curPart.text.substring(commonPrefixLen, lastPartIndex), true)
+						+ (spanStyleWhenRemoved == null ? "" : "</span>") + curPart.text.substring(lastPartIndex);
+			}
+		}
+	}
+
+	/**
+	 * @param compareGetTextStrings
+	 *            The result of {@link HtmlDiff#compareGetTextStrings(ParsedHtml, Collection, LinkedList)}.
+	 * @param instancesToConsiderCommon
+	 *            Number of instances of complete text and/or tokens and/or prefix/suffix to consider it common and
+	 *            leave it intact.
+	 * @param spanStyleWhenRemoved
+	 *            HTML style to use in &lt;span&gt; surrounding each removed item. Can be null to avoid adding the span
+	 *            altogether.
+	 * @param tokens
+	 *            Mode to use when the entire sentence is not common, so need to go deeper. If true, remove tokens and
+	 *            replace them with *, otherwise it tries to match longest prefix and suffix.
+	 */
+	public void dupMaskDigitsAndName(LinkedHashMap<Integer, LinkedList<String>> compareGetTextStrings,
+			String mainEmailAddress, LinkedList<String> otherEmailAddresses, int instancesToConsiderCommon,
+			String spanStyleWhenRemoved, String spanStyleWhenReplaceDigits, MapCounter<String> messagesPerSentence)
+	{
+		verifyPartsDup();
+
+		String terminators = " ,-.\t\n/\\:";
+		String digitReplacement = (spanStyleWhenReplaceDigits == null ? "" : "<span style=\""
+				+ spanStyleWhenReplaceDigits + "\">")
+				+ "123" + (spanStyleWhenReplaceDigits == null ? "" : "</span>");
+
+		for (Entry<Integer, LinkedList<String>> entry : compareGetTextStrings.entrySet())
+		{
+			int curPartIndex = entry.getKey();
+			HtmlPart curPart = dupParts.get(curPartIndex);
+			// Count how many are identical
+			int identical = (int) messagesPerSentence.get(curPart.text.trim());
+			// Check if need to remove some of the text
+			if (identical >= instancesToConsiderCommon)
+				continue;
+
+			// Leave known types intact
+			String text = curPart.text.replace("&nbsp;", " ").trim();
+			if (StringUtils.isTextCurrency(text) || StringUtils.isTextCountry(text)
+					|| DateUtils.containsDate(text) != null || DateUtils.containsTime(text) != null
+					|| DateUtils.containsDuration(text) != null)
+				continue;
+
+			LinkedList<String> nonTrimedOthers = entry.getValue();
+			LinkedList<String> othersStrings = new LinkedList<String>();
+			for (String curOther : nonTrimedOthers)
+				othersStrings.add(curOther == null ? null : curOther.replace("&nbsp;", " ").trim());
+
+			// Check if it's a name
+			String type;
+			boolean name = StringUtils.emailMatchesName(mainEmailAddress, text)
+					|| emailsMatchNames(otherEmailAddresses, othersStrings, instancesToConsiderCommon);
+			if (name)
+				type = "Name";
+			else
+			{
+				type = getTextType(curPart.text, othersStrings, instancesToConsiderCommon);
+			}
+			if (type != null)
+			{
+				int commonPrefixLen = StringUtils.getLongestCommonPrefixWithTerminators(text, nonTrimedOthers,
+						terminators);
+				int commonSuffixLen = StringUtils.getLongestCommonSuffixWithTerminators(text, nonTrimedOthers,
+						terminators);
+
+				curPart.text = (commonPrefixLen > 0 ? curPart.text.substring(0, commonPrefixLen) : "")
+						+ (spanStyleWhenRemoved == null ? "" : "<span style=\"" + spanStyleWhenRemoved + "\">")
+						+ "&nbsp;(" + type + ")&nbsp;" + (spanStyleWhenRemoved == null ? "" : "</span>")
+						+ (commonSuffixLen > 0 ? curPart.text.substring(curPart.text.length() - commonSuffixLen) : "");
+				continue;
+			}
+
+			curPart.text = curPart.text.replaceAll("[0-9]{3}", digitReplacement);
+		}
+	}
+
+	public static boolean emailsMatchNames(LinkedList<String> emailAddresses, LinkedList<String> possibleNames,
+			int minMatchForTypeDetection)
+	{
+		if (emailAddresses.isEmpty() || emailAddresses.size() != possibleNames.size())
+			return false;
+
+		for (int i = emailAddresses.size() - 1; i >= 0; i--)
+		{
+			String curEmailAdress = emailAddresses.get(i);
+			String curPossibleName = possibleNames.get(i);
+			if (!StringUtils.emailMatchesName(curEmailAdress, curPossibleName))
+				continue;
+			minMatchForTypeDetection--;
+			if (minMatchForTypeDetection <= 0)
+				return true;
+		}
+		return false;
+	}
+
+	public static boolean isTextContainRegex(String regex, String sampleText, Collection<String> otherText, int minMatch)
+	{
+		Pattern pattern = Pattern.compile(regex);
+		if (pattern.matcher(sampleText).matches())
+			minMatch--;
+		if (minMatch <= 0)
+			return true;
+		for (String curString : otherText)
+		{
+			if (curString != null && pattern.matcher(curString).matches())
+			{
+				minMatch--;
+				if (minMatch <= 0)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	public static String getTextType(String text, Collection<String> otherStrings, int minMatch)
+	{
+		String result = ParsedHtml.isTextContainRegex("[\\*]{7,12}[0-9]{4}", text, otherStrings, minMatch) ? "Card_Num"
+				: ParsedHtml.isTextContainRegex("(?:Amex|American Express|MasterCard|Master[ \\-][Cc]ard|Visa|Diners)",
+						text, otherStrings, minMatch) ? "Card_Pro" : ParsedHtml.isTextContainRegex(
+						"[0-9]+ [a-zA-Z][a-zA-Z ,\\-0-9]+ (dr|Dr|DR|st|St|ST|street|Street|STREET|ave|Ave|AVE)(\\.)?",
+						text, otherStrings, minMatch) ? "Street"
+						: ParsedHtml.isTextContainRegex(
+								"[A-Za-z][a-zA-Z\\.\\-_0-9]*@([a-zA-Z\\-_]+\\.)+([a-zA-Z]{2,3})", text, otherStrings,
+								minMatch) ? "Email" : ParsedHtml.isTextContainRegex(
+								"[A-Z][a-zA-Z]+(,)? [A-Z][A-Z](,)? [0-9]{4,6}(\\-[0-9]{4,6})?", text, otherStrings,
+								minMatch) ? "State" : null;
+		return result;
+	}
+
+	private String maskTextTokens(String baseString, LinkedList<String> othersStrings, int instancesToConsiderCommon,
+			String spanStyleWhenRemoved)
+	{
+		// Check how many others have it
+		if (!StringUtils.containsAlphaOrDigit(baseString))
+			return baseString;
+
+		// TODO temp - need to handle other known types too
+		Matcher matcher = null;
+		if (DateUtils.containsMonthNameShort(baseString))
+		{
+			// System.out.println("Month short: " + baseString.trim());
+			matcher = DateUtils.containsDate(baseString);
+		}
+		if (matcher != null)
+		{
+			int start = matcher.start(1);
+			int end = matcher.end(1);
+			String result = start == 0 ? "" : maskTextTokens(baseString.substring(0, start), othersStrings,
+					instancesToConsiderCommon, spanStyleWhenRemoved);
+			result += DateUtils.maskDate(baseString.substring(start, end));
+			if (end < baseString.length())
+				result += maskTextTokens(baseString.substring(end), othersStrings, instancesToConsiderCommon,
+						spanStyleWhenRemoved);
+			return result;
+		}
+
+		String tokens[] = baseString.replace("&nbsp;", " ").trim().split("[ \n\t]+");
+		String result = "";
+		String removedText = "";
+		String toolTip = "";
+		for (String curToken : tokens)
+		{
+			int foundCount = 0;
+
+			// Too short?
+			if (curToken.length() < 2)
+			{
+				if (curToken.equals("a") || curToken.equalsIgnoreCase("I"))
+					foundCount = othersStrings.size();
+			} else
+			{
+				// Count in others
+				for (String curOther : othersStrings)
+				{
+					// Skip the nulls, that were already considered as identical before calling this method
+					if (curOther == null)
+						continue;
+
+					boolean found = false;
+					int index = -1;
+					while (!found)
+					{
+						index = curOther.indexOf(curToken, index + 1);
+						if (index < 0)
+							break;
+						if (index > 0)
+						{
+							char c = curOther.charAt(index - 1);
+							if (c != ' ' && c != '\t' && c != '\n')
+								continue;
+						}
+						int lastCharIndex = index + curToken.length();
+						if (lastCharIndex < curOther.length())
+						{
+							char c = curOther.charAt(lastCharIndex);
+							if (c != ' ' && c != '\t' && c != '\n')
+								continue;
+						}
+						found = true;
+					}
+					// If found in current other
+					if (found)
+					{
+						foundCount++;
+						if (foundCount == instancesToConsiderCommon)
+							break;
+					}
+				}
+			}
+
+			// Is it private?
+			if (foundCount < instancesToConsiderCommon)
+			{
+				removedText += " " + maskCharacters(curToken, true);
+				toolTip += (curToken.replace("\"", "&quot;") + " ");
+			} else
+			{
+				if (!removedText.isEmpty())
+				{
+					result += " <span "
+							+ (spanStyleWhenRemoved == null ? "" : ("style=\"" + spanStyleWhenRemoved + "\"")
+									+ " title=\"" + toolTip + "\">" + removedText + "</span>");
+					removedText = "";
+					toolTip = "";
+				}
+				result += " " + curToken;
+			}
+		}
+
+		// If ends with removed text
+		if (!removedText.isEmpty())
+			result += " <span "
+					+ (spanStyleWhenRemoved == null ? "" : ("style=\"" + spanStyleWhenRemoved + "\"") + " title=\""
+							+ toolTip + "\">" + removedText + "</span>");
+
+		if (baseString.endsWith(" ") && !result.endsWith(" "))
+			return result + " ";
 		return result;
 	}
 }

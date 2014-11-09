@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -109,6 +110,13 @@ public class StringUtils
 			return true;
 		// Now try the 2-char uppercase
 		return countryNames.contains(trim);
+	}
+
+	public static boolean isTextContainsCreditCardProvider(String text)
+	{
+		return text.contains("Visa") || text.contains("MasterCard") || text.contains("Master Card")
+				|| text.contains("Master-Card") || text.contains("AMEX") || text.contains("Amex")
+				|| text.contains("American Express") || text.contains("Diners");
 	}
 
 	/**
@@ -748,5 +756,307 @@ public class StringUtils
 			return String.format("%,.2f GB", (double) bytes / 1000000000L);
 
 		return String.format("%,.2f TB", (double) bytes / 1000000000000L);
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common prefix.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings.
+	 * @param minOthers
+	 *            The number of "best" others to compare with the base string. If zero, the result will be the length of
+	 *            the base string.
+	 * @return The longest common prefix found between the base string and a minimal number of other strings that are
+	 *         most similar to the base.
+	 */
+	public static int getLongestCommonPrefix(String baseString, Collection<String> others, int minOthers)
+	{
+		// Sanity check
+		if (minOthers <= 0)
+			return baseString.length();
+		if (others == null || others.isEmpty() || minOthers > others.size() || minOthers <= 0)
+			return 0;
+
+		LinkedList<String> othersDup = new LinkedList<String>(others);
+		for (int i = 0; i < baseString.length(); i++)
+		{
+			char c = baseString.charAt(i);
+			int matched = 0;
+			for (Iterator<String> it = othersDup.iterator(); it.hasNext();)
+			{
+				// Fast quit when there is no chance to get any better result
+				if (othersDup.size() + matched < minOthers)
+					return i;
+				String curOther = it.next();
+				// If the other string is too short
+				if (curOther == null || curOther.length() <= i)
+				{
+					it.remove();
+					continue;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(i);
+				if (c == o)
+				{
+					matched++;
+				} else
+				{
+					it.remove();
+				}
+			}
+			// Fast quit when there is no chance to get any better result
+			if (matched < minOthers)
+				return i;
+		}
+
+		return baseString.length();
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common prefix for all.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings. Null others are ignored.
+	 * @param terminators
+	 *            Optional - can be null or empty (ignored). The result will be shorter than the actual common prefix if
+	 *            the base string is longer than the common part, and the common part does not end with this terminator
+	 *            (or the character after it).
+	 * @return The longest common prefix found between the base string and all others. Returns 0 if no others are given
+	 *         (other that is null is just ignored).
+	 */
+	public static int getLongestCommonPrefixWithTerminators(String baseString, Collection<String> others,
+			String terminators)
+	{
+		if (others == null || others.isEmpty())
+			return 0;
+
+		int result;
+		boolean mismatch = false;
+
+		for (result = 0; result < baseString.length(); result++)
+		{
+			char c = baseString.charAt(result);
+			for (String curOther : others)
+			{
+				// Ignore null others
+				if (curOther == null)
+					continue;
+				// If the other string is too short
+				if (curOther.length() <= result)
+				{
+					mismatch = true;
+					break;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(result);
+				if (c != o)
+				{
+					mismatch = true;
+					break;
+				}
+			}
+			// Check if need to return
+			if (mismatch)
+				break;
+		}
+
+		// Check if need to retreat now to terminator limits
+		if (result == 0 || terminators == null || terminators.isEmpty() || result == baseString.length())
+			return result;
+
+		//
+		// Look for a terminator, starting at the character after the common part
+		//
+		for (int i = result; i >= 0; i--)
+		{
+			char c = baseString.charAt(i);
+			if (terminators.contains("" + c))
+				return i == result ? result : i + 1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common suffix for all.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings. Null others are ignored.
+	 * @param terminators
+	 *            Optional - can be null or empty (ignored). The result will be shorter than the actual common suffix if
+	 *            the base string is longer than the common part, and the common part does not start with this
+	 *            terminator (or the character before it).
+	 * @return The longest common suffix found between the base string and all others. Returns 0 if no others are given
+	 *         (other that is null is just ignored).
+	 */
+	public static int getLongestCommonSuffixWithTerminators(String baseString, Collection<String> others,
+			String terminators)
+	{
+		if (others == null || others.isEmpty())
+			return 0;
+
+		int result;
+		boolean mismatch = false;
+
+		for (result = 0; result < baseString.length(); result++)
+		{
+			char c = baseString.charAt(baseString.length() - 1 - result);
+			for (String curOther : others)
+			{
+				// Ignore null others
+				if (curOther == null)
+					continue;
+				// If the other string is too short
+				if (curOther.length() <= result)
+				{
+					mismatch = true;
+					break;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(curOther.length() - 1 - result);
+				if (c != o)
+				{
+					mismatch = true;
+					break;
+				}
+			}
+			// Check if need to return
+			if (mismatch)
+				break;
+		}
+
+		// Check if need to retreat now to terminator limits
+		if (result == 0 || terminators == null || terminators.isEmpty() || result == baseString.length())
+			return result;
+
+		//
+		// Look for a terminator, starting at the character after the common part
+		//
+		for (int i = result; i >= 0; i--)
+		{
+			char c = baseString.charAt(baseString.length() - 1 - i);
+			if (terminators.contains("" + c))
+				return i == result ? result : i + 1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Compare a given base string to a subset of other strings, to find the longest common suffix.
+	 * 
+	 * @param baseString
+	 *            The base string to compare with all others.
+	 * @param others
+	 *            The list of other strings.
+	 * @param minOthers
+	 *            The number of "best" others to compare with the base string. If zero, the result will be the length of
+	 *            the base string.
+	 * @return The longest common prefix found between the base string and a minimal number of other strings that are
+	 *         most similar to the base.
+	 */
+	public static int getLongestCommonSuffix(String baseString, Collection<String> others, int minOthers, int maxResult)
+	{
+		// Sanity check
+		if (minOthers <= 0)
+			return baseString.length();
+		if (others == null || others.isEmpty() || minOthers > others.size() || minOthers <= 0 || maxResult <= 0)
+			return 0;
+
+		LinkedList<String> othersDup = new LinkedList<String>(others);
+		for (int i = 0; i < baseString.length(); i++)
+		{
+			// Enough?
+			if (i >= maxResult)
+				return i;
+			// Start comparing with others
+			char c = baseString.charAt(baseString.length() - i - 1);
+			int matched = 0;
+			for (Iterator<String> it = othersDup.iterator(); it.hasNext();)
+			{
+				// Fast quit when there is no chance to get any better result
+				if (othersDup.size() - 1 + matched < minOthers)
+					return i;
+				String curOther = it.next();
+				// If the other string is too short
+				if (curOther == null || curOther.length() <= i)
+				{
+					it.remove();
+					continue;
+				}
+				// The other string is long enough, so compare character
+				char o = curOther.charAt(curOther.length() - 1 - i);
+				if (c == o)
+				{
+					matched++;
+				} else
+				{
+					it.remove();
+				}
+			}
+			// Fast quit when there is no chance to get any better result
+			if (matched < minOthers)
+				return i;
+		}
+
+		return baseString.length();
+	}
+
+	/**
+	 * Tells if a string contains at least one character or digits. Supports unicode.
+	 * 
+	 * @param baseString
+	 *            The string to examine. Can be null or empty.
+	 * @return True if there is at least one character or digit in the string.
+	 */
+	public static boolean containsAlphaOrDigit(String baseString)
+	{
+		if (baseString == null)
+			return false;
+		for (int i = baseString.length() - 1; i >= 0; i--)
+		{
+			char c = baseString.charAt(i);
+			if (Character.isLetterOrDigit(c))
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @param emailAddress
+	 *            Given email address with the host part.
+	 * @param possibleName
+	 *            Any string. Can be null or empty (then the result is false).
+	 * @return True if the email address's left part is at least 3 characters long, and the given name has at least one
+	 *         token (at least 3 characters long) that is contained in the email address.
+	 */
+	public static boolean emailMatchesName(String emailAddress, String possibleName)
+	{
+		if (emailAddress == null || possibleName == null)
+			return false;
+
+		String split[] = emailAddress.split("@");
+		if (split.length != 2)
+			return false;
+
+		emailAddress = split[0].toLowerCase().trim();
+		if (emailAddress.length() <= 2)
+			return false;
+
+		split = possibleName.trim().split("[ ,.-]");
+		for (String curString : split)
+		{
+			if (curString.length() <= 2)
+				continue;
+			if (emailAddress.contains(curString.toLowerCase()))
+				return true;
+		}
+		return false;
 	}
 }
