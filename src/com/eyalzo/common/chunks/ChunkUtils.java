@@ -9,7 +9,7 @@ public class ChunkUtils {
 	 * Calculate the similarity between two collections of {@link Chunk}s, when
 	 * similarity is defined as |a * b| / |a U b|. a * b is the intersection
 	 * between the two sets, and |c| is the total length in bytes of all the
-	 * chunks contains in c. The relation is symmetric (between a and b).
+	 * chunks contained in c. The relation is symmetric (between a and b).
 	 * 
 	 * @param a
 	 *            first collection of Chunks
@@ -63,7 +63,7 @@ public class ChunkUtils {
 			bLength += curChunk.getLength();
 		}
 
-		return 1.0d - ((double) count / (aLength + bLength - count));
+		return ((double) count / (aLength + bLength - count));
 
 	}
 }
