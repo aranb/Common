@@ -13,7 +13,7 @@ public class ChunkUtils {
 	 * @param a first collection of Chunks
 	 * @param b second collection of Chunks
 	 *  
-	 * @author aran
+	 * @author Aran Bergman
 	 *
 	 */
 	public static double jaccardSimilarity(Collection<Chunk> a, Collection<Chunk> b) {
