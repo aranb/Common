@@ -4,7 +4,7 @@
 package com.eyalzo.common.chunks;
 
 /**
- * @author Aran BErgman
+ * @author Aran Bergman
  *
  */
 public class Chunk {
